@@ -148,6 +148,47 @@ static size_t xBlockAllocatedBit = 0;
 
 /*-----------------------------------------------------------*/
 
+
+/* ---- DEBUG ONLY: outstanding large-allocation tracker (heap-leak-hunt) ---- */
+#define LEAKTRACK_MIN   2048
+#define LEAKTRACK_SLOTS 96
+typedef struct { void *ptr; uint32_t size; void *ra0; void *ra1; void *ra2; } LeakSlot_t;
+LeakSlot_t xLeakSlots[ LEAKTRACK_SLOTS ];
+uint32_t ulLeakOverflow = 0;
+
+static void vLeakRecord( void *pv, size_t xSize, void *ra0, void *ra1, void *ra2 )
+{
+	int i;
+	if( xSize < LEAKTRACK_MIN ) return;
+	for( i = 0; i < LEAKTRACK_SLOTS; i++ ) {
+		if( xLeakSlots[ i ].ptr == NULL ) {
+			xLeakSlots[ i ].ptr = pv;
+			xLeakSlots[ i ].size = (uint32_t)xSize;
+			xLeakSlots[ i ].ra0 = ra0;
+			xLeakSlots[ i ].ra1 = ra1;
+			xLeakSlots[ i ].ra2 = ra2;
+			return;
+		}
+	}
+	ulLeakOverflow++;
+}
+
+static void vLeakForget( void *pv )
+{
+	int i;
+	for( i = 0; i < LEAKTRACK_SLOTS; i++ ) {
+		if( xLeakSlots[ i ].ptr == pv ) { xLeakSlots[ i ].ptr = NULL; return; }
+	}
+}
+
+void vLeakTrackReset( void )
+{
+	int i;
+	for( i = 0; i < LEAKTRACK_SLOTS; i++ ) xLeakSlots[ i ].ptr = NULL;
+	ulLeakOverflow = 0;
+}
+/* ---- end debug tracker ---- */
+
 void *pvPortMalloc( size_t xWantedSize )
 {
 BlockLink_t *pxBlock, *pxPreviousBlock, *pxNewBlockLink;
@@ -294,6 +335,9 @@ void *pvReturn = NULL;
 	#endif
 
 	configASSERT( ( ( ( uint32_t ) pvReturn ) & portBYTE_ALIGNMENT_MASK ) == 0 );
+	if( pvReturn != NULL ) {
+		vLeakRecord( pvReturn, xWantedSize, __builtin_return_address( 0 ), __builtin_return_address( 1 ), __builtin_return_address( 2 ) );
+	}
 	return pvReturn;
 }
 /*-----------------------------------------------------------*/
@@ -315,6 +359,8 @@ BlockLink_t *pxLink;
 		/* Check the block is actually allocated. */
 		configASSERT( ( pxLink->xBlockSize & xBlockAllocatedBit ) != 0 );
 		configASSERT( pxLink->pxNextFreeBlock == NULL );
+
+		vLeakForget( pv );
 
 		if( ( pxLink->xBlockSize & xBlockAllocatedBit ) != 0 )
 		{
