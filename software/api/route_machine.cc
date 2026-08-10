@@ -410,3 +410,38 @@ API_CALL(GET, machine, heap, NULL, ARRAY( {  }))
     resp->json->add("total", (int)configTOTAL_HEAP_SIZE);
     resp->json_response(HTTP_OK);
 }
+
+// DEBUG ONLY (heap-leak-hunt branch): list allocations >= 2 KB that are still
+// outstanding, with the caller chain that made them. Reset, do one operation,
+// read: whatever is listed did not come back. Never for upstream.
+typedef struct { void *ptr; uint32_t size; void *ra0; void *ra1; void *ra2; } LeakSlot_t;
+extern "C" LeakSlot_t xLeakSlots[];
+extern "C" uint32_t ulLeakOverflow;
+extern "C" void vLeakTrackReset(void);
+#define LEAKTRACK_SLOTS 96
+
+API_CALL(PUT, machine, heapblocks_reset, NULL, ARRAY( {  }))
+{
+    vLeakTrackReset();
+    resp->json_response(HTTP_OK);
+}
+
+API_CALL(GET, machine, heapblocks, NULL, ARRAY( {  }))
+{
+    char buf[96];
+    int live = 0;
+    uint32_t bytes = 0;
+    for (int i = 0; i < LEAKTRACK_SLOTS; i++) {
+        if (xLeakSlots[i].ptr) {
+            live++;
+            bytes += xLeakSlots[i].size;
+            sprintf(buf, "%lu @ %p  ra %p %p %p", (unsigned long)xLeakSlots[i].size,
+                    xLeakSlots[i].ptr, xLeakSlots[i].ra0, xLeakSlots[i].ra1, xLeakSlots[i].ra2);
+            resp->json->add("block", buf);
+        }
+    }
+    resp->json->add("live_blocks", live);
+    resp->json->add("live_bytes", (int)bytes);
+    resp->json->add("overflow", (int)ulLeakOverflow);
+    resp->json_response(HTTP_OK);
+}
