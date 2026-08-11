@@ -197,6 +197,15 @@ public:
     MountPoint *add_mount_point(SubPath *path, File *, FileSystemInFile *);
     MountPoint *find_mount_point(SubPath *path, FileInfo *info);
 
+    // DEBUG: read-only views of the two lists, so a REST endpoint can report
+    // what is still held. Nothing releases a mount point except invalidate()
+    // on media removal, so these are how we see them accumulate. This section
+    // is already public -- do not add access specifiers here.
+    int get_mount_point_count(void) { return mount_points.get_elements(); }
+    MountPoint *get_mount_point_at(int i) { return mount_points[i]; }
+    int get_open_file_count(void) { return open_file_list.get_elements(); }
+    File *get_open_file_at(int i) { return open_file_list[i]; }
+
     // Functions to use / handle path objects:
     Path *get_new_path(const char *owner) {
     	Path *p = new Path();

@@ -1,5 +1,6 @@
 #include "routes.h"
 #include "attachment_writer.h"
+#include "filemanager.h"
 #include "pattern.h"
 #include "subsys.h"
 #include "c64.h"
@@ -443,5 +444,42 @@ API_CALL(GET, machine, heapblocks, NULL, ARRAY( {  }))
     resp->json->add("live_blocks", live);
     resp->json->add("live_bytes", (int)bytes);
     resp->json->add("overflow", (int)ulLeakOverflow);
+    resp->json_response(HTTP_OK);
+}
+
+// DEBUG: what the file manager is still holding.
+//
+// A mount point is created the first time anything looks inside a disk image
+// and is released only by invalidate(), which runs on media removal. So the
+// question this answers is whether entering N different images leaves N mount
+// points behind, each holding the image file open.
+//
+// The open file list is here too, because the two together say whether a
+// mount is still in use: a mount whose embedded filesystem owns no open file
+// is one that could be released.
+API_CALL(GET, machine, mounts, NULL, ARRAY( {  }))
+{
+    char buf[128];
+    FileManager *fm = FileManager :: getFileManager();
+
+    int mounts = fm->get_mount_point_count();
+    for (int i = 0; i < mounts; i++) {
+        MountPoint *mp = fm->get_mount_point_at(i);
+        File *f = mp->get_file();
+        sprintf(buf, "%s (file '%s', fs %p)", mp->get_path(),
+                f ? f->get_path() : "<none>",
+                f ? f->get_file_system() : NULL);
+        resp->json->add("mount", buf);
+    }
+
+    int files = fm->get_open_file_count();
+    for (int i = 0; i < files; i++) {
+        File *f = fm->get_open_file_at(i);
+        sprintf(buf, "%s (fs %p)", f->get_path(), f->get_file_system());
+        resp->json->add("open_file", buf);
+    }
+
+    resp->json->add("mount_count", mounts);
+    resp->json->add("open_file_count", files);
     resp->json_response(HTTP_OK);
 }
