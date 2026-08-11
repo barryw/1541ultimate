@@ -3,6 +3,8 @@
 #include <stdio.h>
 #include <string.h>
 
+extern "C" void vLeakNoteCaller(void *, void *);  /* DEBUG tracker */
+
 /* Keep allocation sizes in our own header. heap_4's private header changes
  * size with the target alignment and must not be inspected here. */
 static const size_t malloc_header_size =
@@ -32,6 +34,7 @@ void * get_mem(size_t size)
     //printf("New operator for size = %d, returned: \n", size);
     void *ret;
 	ret = pvPortMalloc(size ? size : 1);
+	vLeakNoteCaller(ret, __builtin_return_address(0));
 
 	if (!ret) {
         printf("** PANIC **: Error allocating %p..\n", __builtin_return_address(0));
