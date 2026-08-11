@@ -181,6 +181,14 @@ static void vLeakForget( void *pv )
 	}
 }
 
+void vLeakNoteCaller( void *pv, void *ra )
+{
+	int i;
+	for( i = 0; i < LEAKTRACK_SLOTS; i++ ) {
+		if( xLeakSlots[ i ].ptr == pv ) { xLeakSlots[ i ].ra0 = ra; return; }
+	}
+}
+
 void vLeakTrackReset( void )
 {
 	int i;
