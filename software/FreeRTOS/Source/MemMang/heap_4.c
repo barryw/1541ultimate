@@ -149,49 +149,56 @@ static size_t xBlockAllocatedBit = 0;
 /*-----------------------------------------------------------*/
 
 
-/* ---- DEBUG ONLY: outstanding large-allocation tracker (heap-leak-hunt) ---- */
-#define LEAKTRACK_MIN   2048
-#define LEAKTRACK_SLOTS 96
+/* ---- DEBUG ONLY: outstanding allocation tracker (heap-leak-hunt) ---- */
+/* Every live allocation is recorded, not just the large ones: the residual
+   leak being chased is a few hundred bytes spread over small objects, so the
+   old 2 KB floor hid all of it. A linear scan per malloc and per free cannot
+   pay for that, so slots are direct mapped on the pointer instead -- record,
+   forget and note are all O(1). Two live blocks that hash to the same slot
+   cost the older record, counted in ulLeakOverflow; with a few hundred blocks
+   live in 8192 slots that is a low single-digit percentage. */
+#define LEAKTRACK_MIN   8
+#define LEAKTRACK_BITS  13
+#define LEAKTRACK_SLOTS ( 1 << LEAKTRACK_BITS )
+#define LEAKTRACK_MASK  ( LEAKTRACK_SLOTS - 1 )
 typedef struct { void *ptr; uint32_t size; void *ra0; void *ra1; void *ra2; } LeakSlot_t;
 LeakSlot_t xLeakSlots[ LEAKTRACK_SLOTS ];
 uint32_t ulLeakOverflow = 0;
 
+static uint32_t ulLeakIndex( void *pv )
+{
+	uint32_t a = (uint32_t)pv;
+	return ( ( a >> 3 ) ^ ( a >> 15 ) ) & LEAKTRACK_MASK;
+}
+
 static void vLeakRecord( void *pv, size_t xSize, void *ra0, void *ra1, void *ra2 )
 {
-	int i;
+	uint32_t i;
 	if( xSize < LEAKTRACK_MIN ) return;
-	for( i = 0; i < LEAKTRACK_SLOTS; i++ ) {
-		if( xLeakSlots[ i ].ptr == NULL ) {
-			xLeakSlots[ i ].ptr = pv;
-			xLeakSlots[ i ].size = (uint32_t)xSize;
-			xLeakSlots[ i ].ra0 = ra0;
-			xLeakSlots[ i ].ra1 = ra1;
-			xLeakSlots[ i ].ra2 = ra2;
-			return;
-		}
-	}
-	ulLeakOverflow++;
+	i = ulLeakIndex( pv );
+	if( xLeakSlots[ i ].ptr != NULL ) ulLeakOverflow++;
+	xLeakSlots[ i ].ptr = pv;
+	xLeakSlots[ i ].size = (uint32_t)xSize;
+	xLeakSlots[ i ].ra0 = ra0;
+	xLeakSlots[ i ].ra1 = ra1;
+	xLeakSlots[ i ].ra2 = ra2;
 }
 
 static void vLeakForget( void *pv )
 {
-	int i;
-	for( i = 0; i < LEAKTRACK_SLOTS; i++ ) {
-		if( xLeakSlots[ i ].ptr == pv ) { xLeakSlots[ i ].ptr = NULL; return; }
-	}
+	uint32_t i = ulLeakIndex( pv );
+	if( xLeakSlots[ i ].ptr == pv ) xLeakSlots[ i ].ptr = NULL;
 }
 
 void vLeakNoteCaller( void *pv, void *ra )
 {
-	int i;
-	for( i = 0; i < LEAKTRACK_SLOTS; i++ ) {
-		if( xLeakSlots[ i ].ptr == pv ) { xLeakSlots[ i ].ra0 = ra; return; }
-	}
+	uint32_t i = ulLeakIndex( pv );
+	if( xLeakSlots[ i ].ptr == pv ) xLeakSlots[ i ].ra0 = ra;
 }
 
 void vLeakTrackReset( void )
 {
-	int i;
+	uint32_t i;
 	for( i = 0; i < LEAKTRACK_SLOTS; i++ ) xLeakSlots[ i ].ptr = NULL;
 	ulLeakOverflow = 0;
 }
