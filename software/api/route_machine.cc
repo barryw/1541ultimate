@@ -418,7 +418,16 @@ typedef struct { void *ptr; uint32_t size; void *ra0; void *ra1; void *ra2; } Le
 extern "C" LeakSlot_t xLeakSlots[];
 extern "C" uint32_t ulLeakOverflow;
 extern "C" void vLeakTrackReset(void);
-#define LEAKTRACK_SLOTS 96
+#define LEAKTRACK_SLOTS 8192
+#define LEAKTRACK_CALLERS 48
+
+// Blocks are grouped by their allocating caller, because with the size floor
+// removed a run leaves far too many to list one by one. The per-block list is
+// still emitted, capped, for the cases where one address is not enough.
+// small_printf has no %lu, so every field is printed as %d or %p.
+static void *xLeakRa[LEAKTRACK_CALLERS];
+static int xLeakCount[LEAKTRACK_CALLERS];
+static int xLeakBytes[LEAKTRACK_CALLERS];
 
 API_CALL(PUT, machine, heapblocks_reset, NULL, ARRAY( {  }))
 {
@@ -430,18 +439,50 @@ API_CALL(GET, machine, heapblocks, NULL, ARRAY( {  }))
 {
     char buf[96];
     int live = 0;
-    uint32_t bytes = 0;
+    int bytes = 0;
+    int callers = 0;
+    int listed = 0;
+
     for (int i = 0; i < LEAKTRACK_SLOTS; i++) {
-        if (xLeakSlots[i].ptr) {
-            live++;
-            bytes += xLeakSlots[i].size;
-            sprintf(buf, "%lu @ %p  ra %p %p %p", (unsigned long)xLeakSlots[i].size,
+        if (!xLeakSlots[i].ptr) {
+            continue;
+        }
+        live++;
+        bytes += (int)xLeakSlots[i].size;
+
+        int j;
+        for (j = 0; j < callers; j++) {
+            if (xLeakRa[j] == xLeakSlots[i].ra0) {
+                break;
+            }
+        }
+        if (j == callers && callers < LEAKTRACK_CALLERS) {
+            xLeakRa[callers] = xLeakSlots[i].ra0;
+            xLeakCount[callers] = 0;
+            xLeakBytes[callers] = 0;
+            callers++;
+        }
+        if (j < callers) {
+            xLeakCount[j]++;
+            xLeakBytes[j] += (int)xLeakSlots[i].size;
+        }
+
+        if (listed < 40) {
+            listed++;
+            sprintf(buf, "%d @ %p  ra %p %p %p", (int)xLeakSlots[i].size,
                     xLeakSlots[i].ptr, xLeakSlots[i].ra0, xLeakSlots[i].ra1, xLeakSlots[i].ra2);
             resp->json->add("block", buf);
         }
     }
+
+    for (int j = 0; j < callers; j++) {
+        sprintf(buf, "%d blocks %d bytes ra %p", xLeakCount[j], xLeakBytes[j], xLeakRa[j]);
+        resp->json->add("caller", buf);
+    }
+
     resp->json->add("live_blocks", live);
-    resp->json->add("live_bytes", (int)bytes);
+    resp->json->add("live_bytes", bytes);
+    resp->json->add("distinct_callers", callers);
     resp->json->add("overflow", (int)ulLeakOverflow);
     resp->json_response(HTTP_OK);
 }
