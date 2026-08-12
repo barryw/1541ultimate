@@ -58,10 +58,10 @@ TreeBrowser :: TreeBrowser(UserInterface *ui, Browsable *root) : UIObject(ui)
     pick_mode = PICK_NONE;
     picked = false;
 
-    if(!state) {
-        state = new TreeBrowserState(root, this, 0);
-        state_root = state;
-    }
+    // A subclass with a root screen of its own replaces this through
+    // replace_root_state(); it cannot supply one before this point.
+    state = new TreeBrowserState(root, this, 0);
+    state_root = state;
 }
 
 void TreeBrowser :: replace_root_state(TreeBrowserState *s)

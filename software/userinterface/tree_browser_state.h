@@ -22,6 +22,17 @@ public:
     bool refresh;
     bool needs_reload;
 
+    // Ownership, which differs per pointer and is easy to get wrong:
+    //   node      borrowed. Usually a long-lived Browsable owned elsewhere, so
+    //             this class only ever kills its children, never the node. A
+    //             caller that builds a node per screen owns it and must
+    //             outlive the state -- see AssemblySearchForm.
+    //   previous  owned. The destructor deletes the whole chain upwards.
+    //   deeper    borrowed. level_up() deletes itself and clears this in the
+    //             parent, and a browser torn down while nested is destroyed
+    //             from its deepest state, so this is never the owning end.
+    //   children  borrowed. Points into the list some Browsable returned from
+    //             getSubItems(), or at the shared empty list.
     Browsable *node;
     TreeBrowserState *previous;
     TreeBrowserState *deeper;

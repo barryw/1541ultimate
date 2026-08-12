@@ -371,11 +371,6 @@ void AssemblyResultsView :: into()
     printf("Number of entries: %d. Path = %s\n", child_count, browser->getPath());
 }
 
-void AssemblyResultsView :: get_entries()
-{
-
-}
-
 void BrowsableAssemblyRoot :: fetchPresets(void)
 {
     presets = assembly.get_presets();

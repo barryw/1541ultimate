@@ -35,7 +35,6 @@ public:
 
 class AssemblyResultsView: public TreeBrowserState
 {
-    void get_entries(void);
 public:
     AssemblyResultsView(Browsable *node, TreeBrowser *tb, int level);
     ~AssemblyResultsView();
@@ -210,31 +209,20 @@ public:
 
 class BrowsableQueryResults : public Browsable // Root of results screen
 {
-    IndexedList<Browsable *>items; // Override from Browsable
 public:
-    BrowsableQueryResults(JSON_List *results) : items(16, NULL)
+    // The results go in the inherited children list, so ~Browsable frees them
+    // and getSubItems() needs no override. A list of its own would be invisible
+    // to both.
+    BrowsableQueryResults(JSON_List *results)
     {
         for(int i=0; i<results->get_num_elements(); i++) {
             JSON *j = (*results)[i];
             if (j && j->type() == eObject) {
                 JSON_Object *obj = (JSON_Object *)j;
-                items.append(new BrowsableQueryResult(obj));
+                children.append(new BrowsableQueryResult(obj));
             }
         }
     }
-    ~BrowsableQueryResults()
-    {
-        for (int i = 0; i < items.get_elements(); i++) {
-            delete items[i];
-        }
-        items.clear_list();
-    }
-
-    IndexedList<Browsable *> *getSubItems(int &error)
-    {
-        return &items;
-    }
-
 };
 
 class AssemblyInGui;
