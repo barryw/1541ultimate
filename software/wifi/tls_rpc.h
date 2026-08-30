@@ -56,9 +56,15 @@ typedef struct {
 #define TLS_RESULT_TIMEOUT    (-0x10004)
 
 #ifdef __cplusplus
+#if __cplusplus >= 201103L
 static_assert(offsetof(rpc_tls_req, data) == 10, "TLS request wire layout changed");
 static_assert(offsetof(rpc_tls_resp, data) == 12, "TLS response wire layout changed");
 static_assert(sizeof(rpc_tls_start_data) == 132, "TLS start wire layout changed");
+#else
+typedef char tls_request_wire_layout[(offsetof(rpc_tls_req, data) == 10) ? 1 : -1];
+typedef char tls_response_wire_layout[(offsetof(rpc_tls_resp, data) == 12) ? 1 : -1];
+typedef char tls_start_wire_layout[(sizeof(rpc_tls_start_data) == 132) ? 1 : -1];
+#endif
 #else
 _Static_assert(offsetof(rpc_tls_req, data) == 10, "TLS request wire layout changed");
 _Static_assert(offsetof(rpc_tls_resp, data) == 12, "TLS response wire layout changed");

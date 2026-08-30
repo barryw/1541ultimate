@@ -4,9 +4,11 @@
 #include <stddef.h>
 #include <stdint.h>
 #include "cmd_buffer.h"
+#include "network_socket.h"
 
-class TlsSocket {
+class TlsSocket : public NetworkSocket {
     int socket_fd;
+    int last_error;
     uint8_t session_id;
     bool active;
     uint8_t input[CMD_BUF_SIZE];
@@ -27,7 +29,8 @@ public:
     ~TlsSocket();
 
     int handshake(const char *hostname);
-    int read(void *data, size_t length);
+    int error(void) const { return last_error; }
+    int read(void *data, size_t length, bool *truncated);
     int write(const void *data, size_t length);
     int close(void);
 };

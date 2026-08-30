@@ -24,13 +24,55 @@ Message c_status_no_socket           = { 23, true, (uint8_t *)"85,ERROR OPENING 
 Message c_status_socket_closed       = { 28, true, (uint8_t *)"01,CONNECTION CLOSED BY HOST" };
 Message c_status_net_no_data         = { 26, true, (uint8_t *)"03,MORE DATA NOT SUPPORTED" };
 Message c_status_internal_error      = { 17, true, (uint8_t *)"86,INTERNAL ERROR" };
+Message c_status_tls_unavailable     = { 20, true, (uint8_t *)"87,TLS NOT SUPPORTED" };
+
+TlsSocketFactory tls_socket_factory = NULL;
+
+class LwipNetworkSocket : public NetworkSocket {
+    int fd;
+
+public:
+    explicit LwipNetworkSocket(int socket_fd) : fd(socket_fd) {}
+    ~LwipNetworkSocket() { close(); }
+
+    int read(void *data, size_t length, bool *truncated)
+    {
+        struct iovec iov;
+        struct msghdr msg;
+        iov.iov_base = data;
+        iov.iov_len = length;
+        memset(&msg, 0, sizeof(msg));
+        msg.msg_iov = &iov;
+        msg.msg_iovlen = 1;
+        int result = lwip_recvmsg(fd, &msg, 0);
+        if (truncated) {
+            *truncated = (msg.msg_flags & MSG_TRUNC) != 0;
+        }
+        return result;
+    }
+
+    int write(const void *data, size_t length)
+    {
+        return lwip_send(fd, data, length, 0);
+    }
+
+    int close(void)
+    {
+        if (fd < 0) {
+            return 0;
+        }
+        int socket_fd = fd;
+        fd = -1;
+        return lwip_close(socket_fd);
+    }
+};
 
 NetworkTarget::NetworkTarget(int id)
 {
     command_targets[id] = this;
     data_message.message = new uint8_t[CMD_MAX_REPLY_LEN];
     status_message.message = new uint8_t[CMD_MAX_STATUS_LEN];
-    socket_count = 0;
+    memset(sockets, 0, sizeof(sockets));
     interface_number = -1;
     discard_read_reply();
 }
@@ -154,7 +196,7 @@ void NetworkTarget :: parse_command(Message *command, Message **reply, Message *
                 *status = &c_status_invalid_params;
                 break;
             }
-            open_socket(command, reply, status, SOCK_STREAM);
+            open_socket(command, reply, status, SOCK_STREAM, false);
 			break;
         case NET_CMD_OPEN_UDP:
             if (command->length < 5) { // Impossible
@@ -162,8 +204,16 @@ void NetworkTarget :: parse_command(Message *command, Message **reply, Message *
                 *status = &c_status_invalid_params;
                 break;
             }
-        	open_socket(command, reply, status, SOCK_DGRAM);
-        	break;
+        	open_socket(command, reply, status, SOCK_DGRAM, false);
+			break;
+        case NET_CMD_OPEN_TLS:
+            if (command->length < 5) {
+                *reply = &c_message_empty;
+                *status = &c_status_invalid_params;
+                break;
+            }
+            open_socket(command, reply, status, SOCK_STREAM, true);
+			break;
         case NET_CMD_CLOSE_SOCKET:
             if (command->length != 3) { // 2 + 1
                 *reply = &c_message_empty;
@@ -189,10 +239,15 @@ void NetworkTarget :: parse_command(Message *command, Message **reply, Message *
     }
 }
 
-void NetworkTarget :: open_socket(Message *command, Message **reply, Message **status, int type)
+void NetworkTarget :: open_socket(Message *command, Message **reply, Message **status,
+                                  int type, bool secure)
 {
 	*reply = &c_message_empty;
 	*status = &c_status_ok;
+	if (secure && !tls_socket_factory) {
+		*status = &c_status_tls_unavailable;
+		return;
+	}
 
 	uint16_t port_number = uint16_t(command->message[2]) | (uint16_t(command->message[3]) << 8);
 	struct sockaddr_in addr;
@@ -259,29 +314,39 @@ void NetworkTarget :: open_socket(Message *command, Message **reply, Message **s
 		return;
 	}
 
-	if (socket > 255) {
-        *status = &c_status_internal_error;
-        lwip_close(socket);
-        return;
-	}
-
-	// The table has room for every socket lwip can create, so this cannot
-	// fail. Refusing rather than writing past the table keeps that a check
-	// instead of an assumption.
-	if (!track_socket(socket)) {
-		*status = &c_status_no_socket;
-		lwip_close(socket);
-		return;
-	}
-	*reply = &data_message;
-	this->data_message.message[0] = (uint8_t)socket;
-	this->data_message.length = 1;
-	data_message.last_part = true;
-
 	struct timeval tv;
 	tv.tv_sec = 0;
 	tv.tv_usec = 40000; // 40 ms
 	setsockopt(socket, SOL_SOCKET, SO_RCVTIMEO, (char *)&tv, sizeof(struct timeval));
+
+	int tls_error = 0;
+	NetworkSocket *connection = secure
+	                                ? tls_socket_factory(socket,
+	                                                     (const char *)&command->message[4],
+	                                                     &tls_error)
+	                                : new LwipNetworkSocket(socket);
+	if (!connection) {
+		if (!secure) {
+			lwip_close(socket);
+		}
+		*status = &status_message;
+		sprintf((char *)this->status_message.message, secure ? "13,TLS ERROR: %d"
+		                                                   : "85,ERROR OPENING SOCKET: %d",
+		        secure ? tls_error : errno);
+		this->status_message.length = strlen((char *)this->status_message.message);
+		return;
+	}
+
+	int handle = track_socket(connection);
+	if (handle < 0) {
+		delete connection;
+		*status = &c_status_no_socket;
+		return;
+	}
+	*reply = &data_message;
+	this->data_message.message[0] = (uint8_t)handle;
+	this->data_message.length = 1;
+	data_message.last_part = true;
 }
 
 void NetworkTarget :: read_socket(Message *command, Message **reply, Message **status)
@@ -307,16 +372,11 @@ void NetworkTarget :: read_socket(Message *command, Message **reply, Message **s
     // length of the datagram itself and sets MSG_TRUNC when it did not fit,
     // where lwip_recv reports only what was copied and drops the rest without
     // a trace. On a stream socket the two behave the same way.
-    struct iovec iov;
-    struct msghdr msg;
-    iov.iov_base = buffer;
-    iov.iov_len = length;
-    memset(&msg, 0, sizeof(msg));
-    msg.msg_iov = &iov;
-    msg.msg_iovlen = 1;
+    bool truncated = false;
+    NetworkSocket *socket = get_socket(socketnr);
     int ret;
-    if (owns_socket(socketnr)) {
-        ret = lwip_recvmsg(socketnr, &msg, 0);
+    if (socket) {
+        ret = socket->read(buffer, length, &truncated);
     } else {
         errno = EBADF;
         ret = -1;
@@ -334,14 +394,13 @@ void NetworkTarget :: read_socket(Message *command, Message **reply, Message **s
 
     // printf("Reading %d bytes from socket %d resulted in %d\n", length, socketnr, ret);
 	if (ret == 0) {
-		untrack_socket(socketnr);
-		lwip_close(socketnr);
+		delete untrack_socket(socketnr);
 		*status = &c_status_socket_closed;
 		return;
 	}
 	if (ret > 0) {
 		Message *result = &c_status_ok;
-		if (msg.msg_flags & MSG_TRUNC) {
+		if (truncated) {
 			// The datagram was longer than the caller asked for and the rest is
 			// gone. Reporting that on the status channel leaves the reply itself
 			// unchanged, so a client that does not look is no worse off than
@@ -397,8 +456,9 @@ void NetworkTarget :: write_socket(Message *command, Message **reply, Message **
 
     int length = command->length - 3;
     int ret;
-    if (owns_socket(socketnr)) {
-        ret = lwip_send(socketnr, src, length, 0);
+    NetworkSocket *socket = get_socket(socketnr);
+    if (socket) {
+        ret = socket->write(src, length);
     } else {
         errno = EBADF;
         ret = -1;
@@ -425,9 +485,10 @@ void NetworkTarget :: close_socket(Message *command, Message **reply, Message **
 {
     uint8_t socketnr = command->message[2];
     int result = -1;
-    if (owns_socket(socketnr)) {
-        untrack_socket(socketnr);
-        result = lwip_close(socketnr);
+    NetworkSocket *socket = untrack_socket(socketnr);
+    if (socket) {
+        result = socket->close();
+        delete socket;
     } else {
         errno = EBADF;
     }
@@ -448,44 +509,39 @@ void NetworkTarget :: close_socket(Message *command, Message **reply, Message **
 static_assert(NET_MAX_SOCKETS >= MEMP_NUM_NETCONN,
               "the socket table is smaller than the number of lwip sockets");
 
-bool NetworkTarget :: track_socket(int socketnr)
+int NetworkTarget :: track_socket(NetworkSocket *socket)
 {
-    if (socket_count >= NET_MAX_SOCKETS) {
-        return false;
-    }
-    sockets[socket_count++] = socketnr;
-    return true;
-}
-
-void NetworkTarget :: untrack_socket(int socketnr)
-{
-    for (int i = 0; i < socket_count; i++) {
-        if (sockets[i] == socketnr) {
-            socket_count--;
-            for (; i < socket_count; i++) {
-                sockets[i] = sockets[i + 1];
-            }
-            return;
+    for (int handle = 0; handle < NET_MAX_SOCKETS; handle++) {
+        if (!sockets[handle]) {
+            sockets[handle] = socket;
+            return handle;
         }
     }
+    return -1;
 }
 
-bool NetworkTarget :: owns_socket(int socketnr)
+NetworkSocket *NetworkTarget :: get_socket(int handle)
 {
-    for (int i = 0; i < socket_count; i++) {
-        if (sockets[i] == socketnr) {
-            return true;
-        }
+    if (handle < 0 || handle >= NET_MAX_SOCKETS) {
+        return NULL;
     }
-    return false;
+    return sockets[handle];
+}
+
+NetworkSocket *NetworkTarget :: untrack_socket(int handle)
+{
+    NetworkSocket *socket = get_socket(handle);
+    if (socket) {
+        sockets[handle] = NULL;
+    }
+    return socket;
 }
 
 void NetworkTarget :: close_all_sockets(void)
 {
-    for (int i = 0; i < socket_count; i++) {
-        lwip_close(sockets[i]);
+    for (int i = 0; i < NET_MAX_SOCKETS; i++) {
+        delete untrack_socket(i);
     }
-    socket_count = 0;
 }
 
 void NetworkTarget :: c64_reset(void)
