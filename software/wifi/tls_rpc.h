@@ -38,6 +38,7 @@ typedef struct {
 #define TLS_OP_WRITE          4
 #define TLS_OP_READ           5
 #define TLS_OP_CLOSE          6
+#define TLS_OP_FEED           7
 
 #define TLS_NEW_SESSION       0xFF
 #define TLS_MAX_SESSIONS      4
@@ -48,6 +49,11 @@ typedef struct {
 #define TLS_ERR_NO_SESSION    (-1)
 #define TLS_ERR_INVALID_TIME  (-2)
 #define TLS_ERR_CA_IN_USE     (-3)
+
+#define TLS_RESULT_WANT_READ  (-0x10001)
+#define TLS_RESULT_WANT_WRITE (-0x10002)
+#define TLS_RESULT_CLOSED     (-0x10003)
+#define TLS_RESULT_TIMEOUT    (-0x10004)
 
 #ifdef __cplusplus
 static_assert(offsetof(rpc_tls_req, data) == 10, "TLS request wire layout changed");

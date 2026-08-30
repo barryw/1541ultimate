@@ -1,5 +1,8 @@
 #include "wifi_cmd.h"
 #include "dump_hex.h"
+#include "../../wifi/tls_rpc.h"
+
+#include <stddef.h>
 
 /// C like functions to 'talk' with the WiFi Module
 uint16_t sequence_nr = 0;
@@ -113,6 +116,86 @@ int wifi_getmac(uint8_t *mac)
         printf("Get MAC returned %d as error code.\n", result->esp_err);
     }
     RETURN_ESP;
+}
+
+int wifi_tls_rpc(uint8_t operation, uint8_t session, uint8_t flags,
+                 const void *input, size_t input_length,
+                 void *output, size_t output_capacity, size_t *output_length,
+                 uint8_t *response_session)
+{
+    if ((input_length && !input) ||
+        input_length > CMD_BUF_SIZE - offsetof(rpc_tls_req, data)) {
+        return -1;
+    }
+    if (output_length) {
+        *output_length = 0;
+    }
+    if (response_session) {
+        *response_session = session;
+    }
+
+    command_buf_t *buf;
+    if (esp32.uart->GetBuffer(&buf, 1000) == pdFALSE) {
+        return -1;
+    }
+    if (buf->bufnr < 0 || buf->bufnr >= NUM_TX_BUFFERS) {
+        esp32.uart->FreeBuffer(buf);
+        return -1;
+    }
+
+    rpc_tls_req *request = (rpc_tls_req *)buf->data;
+    uint8_t thread = (uint8_t)buf->bufnr;
+    uint16_t sequence = sequence_nr++;
+    request->hdr.command = CMD_TLS;
+    request->hdr.sequence = sequence;
+    request->hdr.thread = thread;
+    request->operation = operation;
+    request->session = session;
+    request->flags = flags;
+    request->reserved = 0;
+    request->length = (uint16_t)input_length;
+    if (input_length) {
+        memcpy(&request->data, input, input_length);
+    }
+    buf->size = offsetof(rpc_tls_req, data) + input_length;
+    tasksWaitingForReply[thread] = xTaskGetCurrentTaskHandle();
+
+    esp32.uart->TransmitPacket(buf);
+    if (xTaskNotifyWait(0, 0, (uint32_t *)&buf, portMAX_DELAY) != pdTRUE) {
+        tasksWaitingForReply[thread] = NULL;
+        return -1;
+    }
+
+    size_t header_size = offsetof(rpc_tls_resp, data);
+    if (buf->size < (int)header_size) {
+        esp32.uart->FreeBuffer(buf);
+        return -1;
+    }
+    rpc_tls_resp *response = (rpc_tls_resp *)buf->data;
+    if (response->hdr.command != CMD_TLS ||
+        response->hdr.thread != thread ||
+        response->hdr.sequence != sequence ||
+        response->operation != operation ||
+        (operation != TLS_OP_START && response->session != session) ||
+        response->length > (size_t)buf->size - header_size ||
+        response->length > output_capacity ||
+        (response->length && !output)) {
+        esp32.uart->FreeBuffer(buf);
+        return -1;
+    }
+
+    if (response->length) {
+        memcpy(output, &response->data, response->length);
+    }
+    if (output_length) {
+        *output_length = response->length;
+    }
+    if (response_session) {
+        *response_session = response->session;
+    }
+    int result = response->result;
+    esp32.uart->FreeBuffer(buf);
+    return result;
 }
 
 #if U64 == 2
@@ -318,4 +401,3 @@ int wifi_modem_enable(bool enable)
 }
 
 const char *no_wifi_buf = "*** NO BUFFER TO TRANSMIT ANYTHING.\n";
-

@@ -190,6 +190,7 @@ SRCS_CC	 =  u64ii_init.cc \
 			http_target.cc \
 			assembly_search.cc \
 			assembly.cc \
+			tls_socket.cc \
 			ftp_client.cc \
 			filesystem_a64.cc \
 			filesystem_ftp.cc \
