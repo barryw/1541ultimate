@@ -117,16 +117,6 @@ int wifi_getmac(uint8_t *mac)
     RETURN_ESP;
 }
 
-int wifi_get_random(uint8_t bytes[32])
-{
-    BUFARGS(identify, CMD_GET_RANDOM);
-    TRANSMIT(get_random);
-    if (result->esp_err == 0) {
-        memcpy(bytes, result->bytes, sizeof(result->bytes));
-    }
-    RETURN_ESP;
-}
-
 static int wifi_tls_rpc(uint8_t operation, uint8_t flags,
                         const void *input, size_t input_length,
                         void *output, size_t output_capacity, size_t *output_length)

@@ -1,17 +1,15 @@
 # TLS client support
 
-TLS uses `mozilla-ca.pem`, the full Mozilla NSS trust store published by curl
-on August 13, 2026. Its SHA-256 is
+TLS uses ESP-IDF's certificate-bundle implementation with the full Mozilla NSS
+trust store published by curl on August 13, 2026. Its SHA-256 is
 `f66dff1bdf8f96060b8177976f8b7d9254bc89bc4db933d769f7384d28480bc9`.
 It is initialized with the ESP hardware RNG at coprocessor boot. Public trust
 changes only when this pinned bundle is updated and new firmware is installed.
-The PEM conversion does not preserve Firefox-only name constraints; this is
-the same limitation documented for curl's Mozilla extract.
 
 ## Custom certificate authorities
 
 To add private or otherwise unlisted certificate authorities, upload a PEM
-bundle to `/flash/data/custom-ca.pem` and reboot the Ultimate. The file may
+bundle to `/flash/custom-ca.pem` and reboot the Ultimate. The file may
 contain one or more CA certificates and must be smaller than 4096 bytes.
 Custom roots augment the public bundle; they do not replace it. Removing the
 file and rebooting removes the custom trust.

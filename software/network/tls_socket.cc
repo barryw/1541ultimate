@@ -2,6 +2,7 @@
 
 #include "filemanager.h"
 #include "lwip/sockets.h"
+#include "rtc.h"
 #include "wifi_cmd.h"
 
 #include "FreeRTOS.h"
@@ -15,7 +16,7 @@
 #include <string.h>
 #include <time.h>
 
-#define CA_DIRECTORY "/flash/data"
+#define CA_DIRECTORY "/flash"
 #define CA_FILENAME "custom-ca.pem"
 #define CA_BUNDLE_MAX 4096
 #define TLS_RPC_CHUNK 1400
@@ -39,6 +40,21 @@ static void zeroize(void *data, size_t length)
 static bool timed_out(TickType_t started)
 {
     return (TickType_t)(xTaskGetTickCount() - started) >= pdMS_TO_TICKS(TLS_TIMEOUT_MS);
+}
+
+static time_t tls_time(void)
+{
+    int year, month, day, weekday, hour, minute, second;
+    rtc.get_time(year, month, day, weekday, hour, minute, second);
+    struct tm local = { };
+    local.tm_year = year + 80;
+    local.tm_mon = month - 1;
+    local.tm_mday = day;
+    local.tm_hour = hour;
+    local.tm_min = minute;
+    local.tm_sec = second;
+    local.tm_isdst = -1;
+    return mktime(&local);
 }
 
 static int socket_send_all(const uint8_t *data, size_t length)
@@ -141,7 +157,7 @@ int tls_socket_open(int socket, const char *hostname)
     setsockopt(socket_fd, SOL_SOCKET, SO_SNDTIMEO, &timeout, sizeof(timeout));
     int result = tls_socket_prepare();
     if (result == 0) {
-        result = wifi_tls_start(hostname, (int64_t)time(NULL));
+        result = wifi_tls_start(hostname, (int64_t)tls_time());
     }
 
     size_t input_length = 0;

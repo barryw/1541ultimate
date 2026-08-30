@@ -34,7 +34,6 @@ void wifi_command_init(void); // Sets the callback for the ISR
 int wifi_setbaud(int baudrate, uint8_t flowctrl);
 BaseType_t wifi_detect(uint16_t *major, uint16_t *minor, char *str, int maxlen);
 int wifi_getmac(uint8_t *mac);
-int wifi_get_random(uint8_t bytes[32]);
 int wifi_tls_ca(const void *data, size_t length, uint8_t flags);
 int wifi_tls_start(const char *hostname, int64_t unix_time);
 int wifi_tls_exchange(uint8_t operation, const void *input, size_t input_length,

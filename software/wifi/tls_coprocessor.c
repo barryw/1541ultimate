@@ -227,7 +227,10 @@ void tls_coprocessor_handle(command_buf_t *buf)
     size_t length = 0;
     switch (operation) {
     case TLS_OP_CA:
-        result = set_ca(req);
+        result = tls_coprocessor_init();
+        if (result == 0) {
+            result = set_ca(req);
+        }
         break;
     case TLS_OP_START: {
         if (req->length != sizeof(rpc_tls_start_data)) {

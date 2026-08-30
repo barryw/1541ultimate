@@ -9,8 +9,6 @@
 #define SOFTWARE_WIFI_SCAN_MAIN_RPC_CALLS_H_
 
 #include <stdint.h>
-#include "lwip/sockets.h"
-#include "lwip/netdb.h"
 
 #define DEFAULT_SCAN_LIST_SIZE 24
 
@@ -19,6 +17,8 @@ typedef struct {
     uint8_t thread;
     uint16_t sequence;
 } rpc_header_t;
+
+#include "../../tls_rpc.h"
 
 typedef struct {
     rpc_header_t hdr;
@@ -97,7 +97,7 @@ typedef struct {
 
 typedef struct {
     rpc_header_t hdr;
-    u16_t len;
+    uint16_t len;
     char data;
 } rpc_rx_pkt;
 
@@ -121,34 +121,6 @@ typedef struct {
     int esp_err;
     esp_datetime_t datetime;
 } rpc_get_time_resp;
-
-typedef struct {
-    rpc_header_t hdr;
-    int esp_err;
-    uint8_t bytes[32];
-} rpc_get_random_resp;
-
-typedef struct {
-    rpc_header_t hdr;
-    uint8_t operation;
-    uint8_t flags;
-    uint16_t length;
-    uint8_t data;
-} rpc_tls_req;
-
-typedef struct {
-    rpc_header_t hdr;
-    uint8_t operation;
-    uint8_t reserved;
-    uint16_t length;
-    int32_t result;
-    uint8_t data;
-} rpc_tls_resp;
-
-typedef struct {
-    int64_t unix_time;
-    char hostname[128];
-} rpc_tls_start_data;
 
 //----------------------------------
 // send raw packet
@@ -194,20 +166,6 @@ typedef struct {
 #define CMD_GET_TIME          0x10
 #define CMD_CLEAR_APS         0x11
 #define CMD_WIFI_AUTOCONNECT  0x12
-#define CMD_GET_RANDOM        0x16
-#define CMD_TLS               0x17
-
-#define TLS_OP_CA             0
-#define TLS_OP_START          1
-#define TLS_OP_HANDSHAKE      2
-#define TLS_OP_PULL           3
-#define TLS_OP_WRITE          4
-#define TLS_OP_READ           5
-#define TLS_OP_CLOSE          6
-
-#define TLS_CA_RESET          0x01
-#define TLS_CA_FINAL          0x02
-
 /*
 #define CMD_SOCKET          0x11
 #define CMD_CONNECT         0x12

@@ -27,7 +27,6 @@
 #include "sntp.h"
 #include "rpc_calls.h"
 #include "rpc_dispatch.h"
-#include "tls_coprocessor.h"
 #include "wifi_modem.h"
 #include "pinout.h"
 
@@ -856,11 +855,6 @@ void setup_modem()
         ret = nvs_flash_init();
     }
     ESP_ERROR_CHECK( ret );
-
-    int tls_result = tls_coprocessor_init();
-    if (tls_result != 0) {
-        ESP_LOGE(TAG, "TLS RNG initialization failed: %d", tls_result);
-    }
 
     ESP_LOGI(TAG, IDENT_STRING);
     ESP_LOGI(TAG, "disconnect UART 1 pins...");
