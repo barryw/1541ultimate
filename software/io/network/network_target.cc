@@ -31,6 +31,7 @@ NetworkTarget::NetworkTarget(int id)
     data_message.message = new uint8_t[CMD_MAX_REPLY_LEN];
     status_message.message = new uint8_t[CMD_MAX_STATUS_LEN];
     socket_count = 0;
+    interface_number = -1;
     discard_read_reply();
 }
 
@@ -64,19 +65,26 @@ void NetworkTarget :: parse_command(Message *command, Message **reply, Message *
         	*reply  = &data_message;
             *status = &c_status_ok;
         	break;
-/*
         case NET_CMD_SET_INTERFACE:
-        	*reply = &c_message_empty;
-        	if (command->length != 3) {
-        		*status = &c_status_invalid_params;
-	        } else if (command->message[2] >= (uint8_t)NetworkInterface :: getNumberOfInterfaces()) {
-        		*status = &c_status_param_out_of_range;
-	        } else {
-                *status = &c_status_ok;
-        		interface_number = command->message[2];
-        	}
-        	break;
-*/
+            *reply = &c_message_empty;
+            if (command->length != 3) {
+                *status = &c_status_invalid_params;
+            } else if (command->message[2] >= (uint8_t)NetworkInterface :: getNumberOfInterfaces()) {
+                *status = &c_status_param_out_of_range;
+            } else {
+                interface = NetworkInterface :: getInterface(command->message[2]);
+                uint8_t ip[12];
+                if (interface) {
+                    interface->getIpAddr(ip);
+                }
+                if (!interface || !interface->is_link_up() || !memcmp(ip, "\0\0\0\0", 4)) {
+                    *status = &c_status_interface_not_set;
+                } else {
+                    interface_number = command->message[2];
+                    *status = &c_status_ok;
+                }
+            }
+            break;
         case NET_CMD_GET_IPADDR:
             *reply = &c_message_empty;
             if (command->length != 3) {
@@ -214,6 +222,32 @@ void NetworkTarget :: open_socket(Message *command, Message **reply, Message **s
 	if (socket < 0) {
 		*status = &c_status_no_socket;
 		return;
+	}
+
+	if (interface_number >= 0) {
+		NetworkInterface *interface = NULL;
+		uint8_t ip[12];
+		if (interface_number < NetworkInterface :: getNumberOfInterfaces()) {
+			interface = NetworkInterface :: getInterface(interface_number);
+		}
+		if (interface) {
+			interface->getIpAddr(ip);
+		}
+		struct sockaddr_in local;
+		memset(&local, 0, sizeof(local));
+		local.sin_len = sizeof(local);
+		local.sin_family = AF_INET;
+		if (!interface || !interface->is_link_up() || !memcmp(ip, "\0\0\0\0", 4)) {
+			*status = &c_status_interface_not_set;
+			lwip_close(socket);
+			return;
+		}
+		memcpy(&local.sin_addr.s_addr, ip, 4);
+		if (bind(socket, (struct sockaddr *)&local, sizeof(local)) < 0) {
+			*status = &c_status_interface_not_set;
+			lwip_close(socket);
+			return;
+		}
 	}
 
 	int ret = connect(socket, (struct sockaddr *)&addr, sizeof(addr));
@@ -461,6 +495,7 @@ void NetworkTarget :: c64_reset(void)
     // what is left of the previous one's read over Data More.
     discard_read_reply();
     close_all_sockets();
+    interface_number = -1;
 }
 
 void NetworkTarget :: get_more_data(Message **reply, Message **status)
