@@ -18,6 +18,7 @@
 #include "pinout.h"
 #include "wifi_modem.h"
 #include "sntp.h"
+#include "tls_coprocessor.h"
 
 // not officially supported
 #include "../lwip/esp_netif_lwip_internal.h"
@@ -260,6 +261,10 @@ void dispatch(void *ct)
 
     int led = 0;
     printf("Dispatcher Start. Queue = %p\n", queue);
+    int tls_result = tls_coprocessor_init();
+    if (tls_result != 0) {
+        ESP_LOGE(TAG, "TLS initialization failed: %d", tls_result);
+    }
     while(1) {
         pbuffer = NULL;
         BaseType_t received = xQueueReceive(queue, &pbuffer, 2000 / portTICK_PERIOD_MS);
@@ -318,6 +323,10 @@ void dispatch(void *ct)
             break;
         case CMD_GET_TIME:
             cmd_get_time(pbuffer);
+            break;
+        case CMD_TLS:
+            tls_coprocessor_handle(pbuffer);
+            my_uart_transmit_packet(UART_CHAN, pbuffer);
             break;
         case CMD_CLEAR_APS:
             cmd_clear_aps(pbuffer);
