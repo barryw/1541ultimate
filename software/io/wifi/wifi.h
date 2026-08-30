@@ -15,6 +15,7 @@
 #include "semphr.h"
 #include "browsable.h"
 #include "size_str.h"
+#include "lwip/err.h"
 //#include "network_esp32.h"
 #include "wifi_cmd.h"
 
