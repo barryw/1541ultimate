@@ -71,6 +71,8 @@ CFG_CMD_IF = "Command Interface"
 OWNED_SETTINGS = (CFG_CMD_IF,)
 
 NET_CMD_IDENTIFY = 0x01
+NET_CMD_GET_INTERFACE_COUNT = 0x02
+NET_CMD_SET_INTERFACE = 0x03
 NET_CMD_GET_IPADDR = 0x05
 NET_CMD_OPEN_TCP = 0x07
 NET_CMD_OPEN_UDP = 0x08
@@ -79,6 +81,7 @@ NET_CMD_READ_SOCKET = 0x10
 NET_CMD_WRITE_SOCKET = 0x11
 
 STATUS_OK = b"00,OK"
+STATUS_INVALID_PARAMS = b"81,INVALID PARAMS"
 STATUS_OUT_OF_RANGE = b"82,PARAMETER(S) OUT OF RANGE"
 # Not in the network target document, but what the firmware answers when
 # lwip_recv returns -1. The number is the errno: 9 is EBADF for a handle that
@@ -153,6 +156,7 @@ RESET_CYCLES = 3
 ROUTES = ["rest", "native"]
 
 TESTS = [
+    "interface-selection",
     "read-length-limit",
     "reply-blocks-are-drainable",
     "datagram-spans-reply-blocks",
@@ -257,8 +261,19 @@ class Net:
     def identify(self):
         return self.uci.transact(bytes([TARGET_NETWORK, NET_CMD_IDENTIFY]))
 
-    def ip_address(self) -> Optional[str]:
-        reply = self.uci.transact(bytes([TARGET_NETWORK, NET_CMD_GET_IPADDR, 0])).data
+    def interface_count(self) -> int:
+        result = self.uci.transact(bytes([TARGET_NETWORK, NET_CMD_GET_INTERFACE_COUNT]))
+        if result.status_text != STATUS_OK or len(result.data) != 1:
+            raise Failure(f"GET_INTERFACE_COUNT answered {result.status_text!r} "
+                          f"with reply {result.data!r}")
+        return result.data[0]
+
+    def select_interface(self, index: int):
+        return self.uci.transact(bytes([TARGET_NETWORK, NET_CMD_SET_INTERFACE, index]))
+
+    def ip_address(self, index: int = 0) -> Optional[str]:
+        reply = self.uci.transact(
+            bytes([TARGET_NETWORK, NET_CMD_GET_IPADDR, index])).data
         return ".".join(str(b) for b in reply[:4]) if len(reply) >= 4 else None
 
     def open_command(self, command: int, ip: str, port: int) -> bytes:
@@ -432,6 +447,46 @@ class Peer:
                     sock.close()
                 except OSError:
                     pass
+
+
+def run_interface_selection(net: Net, peer: Peer) -> bool:
+    """A UCI client can bind its sockets to each available interface."""
+    section("interface-selection")
+    count = net.interface_count()
+
+    with check("SET_INTERFACE requires an interface index"):
+        result = net.uci.transact(bytes([TARGET_NETWORK, NET_CMD_SET_INTERFACE]))
+        if result.status_text != STATUS_INVALID_PARAMS or result.data:
+            raise Failure(f"missing index answered {result.status_text!r} "
+                          f"with reply {result.data!r}")
+
+    with check("SET_INTERFACE rejects an index past the interface table"):
+        result = net.select_interface(count)
+        if result.status_text != STATUS_OUT_OF_RANGE or result.data:
+            raise Failure(f"interface {count} answered {result.status_text!r} "
+                          f"with reply {result.data!r}")
+
+    available = 0
+    for index in range(count):
+        expected_ip = net.ip_address(index)
+        result = net.select_interface(index)
+        if result.status_text != STATUS_OK:
+            check_start(f"interface {index} is available")
+            check_skip(f"SET_INTERFACE answered {result.status_text!r}; IP was {expected_ip}")
+            continue
+        available += 1
+        with check(f"sockets selected on interface {index} use {expected_ip}"):
+            handle = net.open_udp(peer.ip, peer.udp_port)
+            try:
+                source_ip, _ = peer.learn_udp_peer(net, handle)
+            finally:
+                net.close(handle)
+            if source_ip != expected_ip:
+                raise Failure(f"peer saw source {source_ip}, expected {expected_ip}")
+
+    if not available:
+        raise Failure(f"none of the device's {count} network interfaces was available")
+    return True
 
 
 def run_read_length_limit(net: Net) -> bool:
@@ -1319,6 +1374,7 @@ def main() -> int:
                 for name in needs_peer:
                     results.setdefault(f"{name} [{route}]", None)
                 continue
+            run(route, "interface-selection", run_interface_selection, net, peer)
             run(route, "reply-blocks-are-drainable", run_reply_blocks_are_drainable, net, peer)
             run(route, "datagram-spans-reply-blocks", run_datagram_spans_reply_blocks, net, peer)
             run(route, "datagram-size-ceiling", run_datagram_size_ceiling, net, peer)

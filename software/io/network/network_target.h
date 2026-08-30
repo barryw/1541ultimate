@@ -74,6 +74,7 @@ class NetworkTarget : public CommandTarget {
     // opened for itself. Any command handing out a socket must track it here.
     int sockets[NET_MAX_SOCKETS];
     int socket_count;
+    int interface_number;
 
     bool track_socket(int socketnr);
     void untrack_socket(int socketnr);
