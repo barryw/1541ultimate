@@ -1,6 +1,8 @@
 #include "wifi_cmd.h"
 #include "dump_hex.h"
 
+#include <stddef.h>
+
 /// C like functions to 'talk' with the WiFi Module
 uint16_t sequence_nr = 0;
 TaskHandle_t tasksWaitingForReply[NUM_TX_BUFFERS];
@@ -113,6 +115,85 @@ int wifi_getmac(uint8_t *mac)
         printf("Get MAC returned %d as error code.\n", result->esp_err);
     }
     RETURN_ESP;
+}
+
+int wifi_get_random(uint8_t bytes[32])
+{
+    BUFARGS(identify, CMD_GET_RANDOM);
+    TRANSMIT(get_random);
+    if (result->esp_err == 0) {
+        memcpy(bytes, result->bytes, sizeof(result->bytes));
+    }
+    RETURN_ESP;
+}
+
+static int wifi_tls_rpc(uint8_t operation, uint8_t flags,
+                        const void *input, size_t input_length,
+                        void *output, size_t output_capacity, size_t *output_length)
+{
+    if (input_length > CMD_BUF_SIZE - offsetof(rpc_tls_req, data)) {
+        return -1;
+    }
+
+    command_buf_t *buf;
+    if (esp32.uart->GetBuffer(&buf, 1000) == pdFALSE) {
+        return -1;
+    }
+    rpc_tls_req *args = (rpc_tls_req *)buf->data;
+    args->hdr.command = CMD_TLS;
+    args->hdr.sequence = sequence_nr++;
+    args->hdr.thread = (uint8_t)buf->bufnr;
+    args->operation = operation;
+    args->flags = flags;
+    args->length = (uint16_t)input_length;
+    if (input_length) {
+        memcpy(&args->data, input, input_length);
+    }
+    buf->size = offsetof(rpc_tls_req, data) + input_length;
+    tasksWaitingForReply[buf->bufnr] = xTaskGetCurrentTaskHandle();
+
+    esp32.uart->TransmitPacket(buf);
+    if (xTaskNotifyWait(0, 0, (uint32_t *)&buf, portMAX_DELAY) != pdTRUE) {
+        return -1;
+    }
+    rpc_tls_resp *response = (rpc_tls_resp *)buf->data;
+    tasksWaitingForReply[response->hdr.thread] = NULL;
+    size_t response_header = offsetof(rpc_tls_resp, data);
+    if (buf->size < (int)response_header ||
+        response->length > (size_t)buf->size - response_header ||
+        response->length > output_capacity) {
+        esp32.uart->FreeBuffer(buf);
+        return -1;
+    }
+    if (response->length && output) {
+        memcpy(output, &response->data, response->length);
+    }
+    if (output_length) {
+        *output_length = response->length;
+    }
+    int result = response->result;
+    esp32.uart->FreeBuffer(buf);
+    return result;
+}
+
+int wifi_tls_ca(const void *data, size_t length, uint8_t flags)
+{
+    return wifi_tls_rpc(TLS_OP_CA, flags, data, length, NULL, 0, NULL);
+}
+
+int wifi_tls_start(const char *hostname, int64_t unix_time)
+{
+    rpc_tls_start_data start = { };
+    start.unix_time = unix_time;
+    strncpy(start.hostname, hostname, sizeof(start.hostname) - 1);
+    return wifi_tls_rpc(TLS_OP_START, 0, &start, sizeof(start), NULL, 0, NULL);
+}
+
+int wifi_tls_exchange(uint8_t operation, const void *input, size_t input_length,
+                      void *output, size_t output_capacity, size_t *output_length)
+{
+    return wifi_tls_rpc(operation, 0, input, input_length,
+                        output, output_capacity, output_length);
 }
 
 #if U64 == 2
@@ -271,4 +352,3 @@ int wifi_modem_enable(bool enable)
 }
 
 const char *no_wifi_buf = "*** NO BUFFER TO TRANSMIT ANYTHING.\n";
-

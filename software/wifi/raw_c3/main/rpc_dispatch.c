@@ -10,6 +10,7 @@
 #include "freertos/queue.h"
 #include "esp_wifi.h"
 #include "esp_log.h"
+#include "esp_system.h"
 #include "driver/uart.h"
 #include "rpc_calls.h"
 #include "rpc_dispatch.h"
@@ -18,6 +19,7 @@
 #include "pinout.h"
 #include "wifi_modem.h"
 #include "sntp.h"
+#include "tls_coprocessor.h"
 
 // not officially supported
 #include "../lwip/esp_netif_lwip_internal.h"
@@ -219,6 +221,15 @@ void cmd_get_time(command_buf_t *buf)
     my_uart_transmit_packet(UART_CHAN, buf);
 }
 
+void cmd_get_random(command_buf_t *buf)
+{
+    rpc_get_random_resp *resp = (rpc_get_random_resp *)buf->data;
+    esp_fill_random(resp->bytes, sizeof(resp->bytes));
+    resp->esp_err = ESP_OK;
+    buf->size = sizeof(rpc_get_random_resp);
+    my_uart_transmit_packet(UART_CHAN, buf);
+}
+
 void cmd_clear_aps(command_buf_t *buf)
 {
     rpc_espcmd_resp *resp = (rpc_espcmd_resp *)buf->data;
@@ -316,6 +327,13 @@ void dispatch(void *ct)
             break;
         case CMD_GET_TIME:
             cmd_get_time(pbuffer);
+            break;
+        case CMD_GET_RANDOM:
+            cmd_get_random(pbuffer);
+            break;
+        case CMD_TLS:
+            tls_coprocessor_handle(pbuffer);
+            my_uart_transmit_packet(UART_CHAN, pbuffer);
             break;
         case CMD_CLEAR_APS:
             cmd_clear_aps(pbuffer);

@@ -182,6 +182,7 @@ SRCS_CC	 =  u2p_init.cc \
 			assembly.cc \
 			filesystem_a64.cc \
 			sntp_time.cc \
+			tls_socket.cc \
 			$(PRJ).cc
 
 SRCS_CC +=  iec_interface.cc 
@@ -211,6 +212,7 @@ VPATH +=	$(BSP)/HAL/inc
 VPATH +=	$(BSP)/drivers/inc
 VPATH +=	$(PATH_SW)/6502/sidcrt/target
 VPATH +=	$(PATH_SW)/wifi/raw_u64/main
+VPATH +=	$(PATH_SW)/mbedtls/include
 
 #            sock_echo.c \
 #			sys_calls.cc \
@@ -231,7 +233,7 @@ SRCS_IEC = iec_code.iec
 SRCS_NANO = nano_minimal.nan
 
 PATH_INC =  $(addprefix -I, $(VPATH))
-OPTIONS  = -g -ffunction-sections -Os -DOS -DDEVELOPER=0 -DNIOS=1 -DCLOCK_FREQ=66666667 -DU64=1 -Wno-write-strings -mno-hw-div -mno-hw-mul -mno-hw-mulx
+OPTIONS  = -g -ffunction-sections -Os -DOS -DDEVELOPER=0 -DNIOS=1 -DCLOCK_FREQ=66666667 -DU64=1 -DTLS_COPROCESSOR=1 -Wno-write-strings -mno-hw-div -mno-hw-mul -mno-hw-mulx
 COPTIONS = $(OPTIONS) -std=gnu99
 CPPOPT   = $(OPTIONS) -std=gnu++11 -fno-exceptions -fno-rtti -fno-threadsafe-statics -fpermissive
 LINK 	 = $(BSP)/linker.x

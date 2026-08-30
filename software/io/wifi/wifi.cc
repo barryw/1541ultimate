@@ -15,6 +15,9 @@
 #include "filemanager.h"
 #include "network_esp32.h"
 #include "init_function.h"
+#ifdef TLS_COPROCESSOR
+#include "tls_socket.h"
+#endif
 
 #define DEBUG_INPUT  0
 #define EVENT_START  0xF1
@@ -94,6 +97,9 @@ void WiFi :: Start()
         printf("** Trying to start Wifi Application, but task is already running?\n");
         return;
     }
+#ifdef TLS_COPROCESSOR
+    tls_socket_invalidate();
+#endif
     state = eWifi_NotDetected;
     xTaskCreate( WiFi :: RunModeTaskStart, "WiFi Command Task", configMINIMAL_STACK_SIZE, this, PRIO_DRIVER, &runModeTask );
 }
@@ -247,6 +253,10 @@ void WiFi :: RunModeThread()
             uart->txDebug = false;
             if (wifi_detect(&major, &minor, moduleName, 32)) {
                 state = eWifi_AppDetected;
+#ifdef TLS_COPROCESSOR
+                int tls_result = tls_socket_prepare();
+                printf("TLS coprocessor preparation: %d\n", tls_result);
+#endif
 
 #if U64 == 2
                 memset(&voltages, 0, sizeof(voltages));

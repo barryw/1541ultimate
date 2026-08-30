@@ -167,6 +167,7 @@ SRCS_CC	 =  u2pl_init.cc \
 			wifi.cc \
 			network_esp32.cc \
 			sntp_time.cc \
+			tls_socket.cc \
 			$(PRJ).cc
 
 SRCS_CC +=  iec_interface.cc \
@@ -192,6 +193,7 @@ VPATH +=	$(PATH_SW)/../neorv32/sw/common
 VPATH +=	$(PATH_SW)/../neorv32/sw/lib/include
 VPATH +=	$(PATH_SW)/../neorv32/sw/lib/source
 VPATH +=	$(PATH_SW)/wifi/raw_c3/main
+VPATH +=	$(PATH_SW)/mbedtls/include
 
 
 SRCS_ASM =
@@ -208,7 +210,7 @@ SRCS_NANO = nano_minimal.nan
 
 PATH_INC =  $(addprefix -I, $(VPATH))
 OPTIONS  = -march=$(MARCH) -mabi=$(MABI) $(EFFORT) -ffunction-sections -fdata-sections -nostartfiles -mno-div
-OPTIONS += -gdwarf-2 -Os -DU2P=2 -DRISCV -DUSB2503 -DOS -DIOBASE=0x10000000 -DU2P_IO_BASE=0x10100000 -DCLOCK_FREQ=50000000 -Wno-write-strings
+OPTIONS += -gdwarf-2 -Os -DU2P=2 -DTLS_COPROCESSOR=1 -DRISCV -DUSB2503 -DOS -DIOBASE=0x10000000 -DU2P_IO_BASE=0x10100000 -DCLOCK_FREQ=50000000 -Wno-write-strings
 COPTIONS = $(OPTIONS) -std=gnu99
 CPPOPT   = $(OPTIONS) -std=gnu++11 -fno-exceptions -fno-rtti -fno-threadsafe-statics -fpermissive
 LINK 	 = linker.x

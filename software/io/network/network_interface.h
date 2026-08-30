@@ -77,6 +77,10 @@ public:
         return NULL;
     }
     static void set_default_interface(void);
+#ifdef TLS_COPROCESSOR
+    static bool set_default_interface(int index);
+    static uint32_t get_preferred_ip(void);
+#endif
 
     static void write_pcap(UserInterface *intf, ConfigItem *it);
 protected:

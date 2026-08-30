@@ -272,6 +272,23 @@ uint32_t Rtc::get_fat_time(void)
 
 Rtc rtc; // global
 
+#ifdef TLS_COPROCESSOR
+extern "C" time_t rtc_get_epoch_time(void)
+{
+    int y, month, day, weekday, hour, minute, second;
+    rtc.get_time(y, month, day, weekday, hour, minute, second);
+    struct tm local = {};
+    local.tm_year = y + 80;
+    local.tm_mon = month - 1;
+    local.tm_mday = day;
+    local.tm_hour = hour;
+    local.tm_min = minute;
+    local.tm_sec = second;
+    local.tm_isdst = -1;
+    return mktime(&local);
+}
+#endif
+
 // ============================================================
 // == Functions that link the RTC to the configuration manager
 // ============================================================

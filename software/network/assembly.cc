@@ -1,11 +1,21 @@
 #include "assembly.h"
+#ifdef TLS_COPROCESSOR
+#include <errno.h>
+#endif
 #include <sys/socket.h>
 #include "netdb.h"
 #include "attachment_writer.h"
 #include "u64.h"
+#ifdef TLS_COPROCESSOR
+#include "tls_socket.h"
+#endif
 
 #define HOSTNAME      "hackerswithstyle.se"
+#ifdef TLS_COPROCESSOR
+#define HOSTPORT      443
+#else
 #define HOSTPORT      80
+#endif
 #define URL_SEARCH    "/leet/search/aql?query="
 #define URL_PATTERNS  "/leet/search/aql/presets"
 #define URL_ENTRIES   "/leet/search/entries"
@@ -132,8 +142,19 @@ int Assembly :: connect_to_server(void)
 
     if (connect(sock_fd, (struct sockaddr *)&serv_addr,sizeof(serv_addr)) < 0) {
         printf("Connection failed.\n");
+#ifdef TLS_COPROCESSOR
+        close(sock_fd);
+#endif
         return -1;
     }
+#ifdef TLS_COPROCESSOR
+    int tls_handle = tls_socket_open(sock_fd, HOSTNAME);
+    if (tls_handle < 0) {
+        close(sock_fd);
+        return tls_handle;
+    }
+    sock_fd = tls_handle;
+#endif
     // printf("Connection succeeded.\n");
     this->socket_fd = sock_fd;
     return sock_fd;
@@ -142,7 +163,11 @@ int Assembly :: connect_to_server(void)
 void Assembly :: close_connection(void)
 {
     if(socket_fd >= 0) {
+#ifdef TLS_COPROCESSOR
+        tls_socket_close();
+#else
         close(socket_fd);
+#endif
     }
     socket_fd = -1;
 }
@@ -162,11 +187,23 @@ JSON *Assembly :: get_presets(void)
         return presets;
     }
     if (connect_to_server() >= 0) {
+#ifdef TLS_COPROCESSOR
+        if (write_socket(request, strlen(request)) != (int)strlen(request)) {
+            close_connection();
+            return NULL;
+        }
+#else
         send(this->socket_fd, request, strlen(request), MSG_DONTWAIT);
+#endif
         get_response(collect_in_buffer);
         close_connection();
 
         body = (t_BufferedBody *) response.userContext;
+#ifdef TLS_COPROCESSOR
+        if (!body) {
+            return NULL;
+        }
+#endif
         presets = convert_buffer_to_json(body);
         return presets;
     }
@@ -189,11 +226,23 @@ JSON *Assembly :: send_query(const char *query)
         "\r\n";
 
     if (connect_to_server() >= 0) {
+#ifdef TLS_COPROCESSOR
+        if (write_socket(request.c_str(), request.length()) != request.length()) {
+            close_connection();
+            return NULL;
+        }
+#else
         send(this->socket_fd, request.c_str(), request.length(), MSG_DONTWAIT);
+#endif
         get_response(collect_in_buffer);
         close_connection();
 
         t_BufferedBody *body = (t_BufferedBody *) response.userContext;
+#ifdef TLS_COPROCESSOR
+        if (!body) {
+            return NULL;
+        }
+#endif
         JSON *json = convert_buffer_to_json(body);
         return json;
     }
@@ -241,11 +290,23 @@ JSON *Assembly :: request_entries(const char *id, int cat)
         "\r\n";
 
     if (connect_to_server() >= 0) {
+#ifdef TLS_COPROCESSOR
+        if (write_socket(request.c_str(), request.length()) != request.length()) {
+            close_connection();
+            return NULL;
+        }
+#else
         send(this->socket_fd, request.c_str(), request.length(), MSG_DONTWAIT);
+#endif
         get_response(collect_in_buffer);
         close_connection();
 
         t_BufferedBody *body = (t_BufferedBody *) response.userContext;
+#ifdef TLS_COPROCESSOR
+        if (!body) {
+            return NULL;
+        }
+#endif
         JSON *json = convert_buffer_to_json(body);
         return json;
     }
@@ -290,11 +351,24 @@ void Assembly :: request_binary(const char *path, const char *filename)
         "\r\n";
 
     if (connect_to_server() >= 0) { // resets userContext to NULL
+#ifdef TLS_COPROCESSOR
+        if (write_socket(request.c_str(), request.length()) == request.length()) {
+            get_response(write_to_temp);
+        }
+#else
         send(this->socket_fd, request.c_str(), request.length(), MSG_DONTWAIT);
         get_response(write_to_temp);
+#endif
         close_connection();
     }
  }
+
+#ifdef TLS_COPROCESSOR
+int Assembly :: write_socket(const void *buffer, size_t length)
+{
+    return tls_socket_write(buffer, length);
+}
+#endif
 
 int Assembly :: read_socket(void)
 {
@@ -302,7 +376,14 @@ int Assembly :: read_socket(void)
     p += response._valid;
     int space = HTTP_BUFFER_SIZE - response._valid;
     printf(".");
+#ifdef TLS_COPROCESSOR
+    int n;
+    do {
+        n = space ? tls_socket_read(p, space) : 0;
+    } while (n < 0 && errno == EWOULDBLOCK);
+#else
     int n = space ? recv(this->socket_fd, p, space, 0) : 0;
+#endif
     if (n >= 0) {
         response._valid += n;
     }
@@ -315,9 +396,17 @@ void Assembly :: get_response(HTTPREQ_CALLBACK callback)
     
     do {
         int n = read_socket();
+#ifdef TLS_COPROCESSOR
+        if (n > 0) {
+            state = ProcessClientData(&response, NULL, callback);
+        } else {
+            break;
+        }
+#else
         if (n) {
             state = ProcessClientData(&response, NULL, callback);
         }
+#endif
     } while(state < WRITING_SOCKET);
 }
 

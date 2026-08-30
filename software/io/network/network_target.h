@@ -21,6 +21,7 @@
 #define NET_CMD_CLOSE_SOCKET        0x09
 #define NET_CMD_READ_SOCKET         0x10
 #define NET_CMD_WRITE_SOCKET        0x11
+#define NET_CMD_OPEN_TLS            0x12
 
 #define NET_CMD_BUFSIZE 2048
 
@@ -28,7 +29,11 @@ class NetworkTarget : public CommandTarget {
     Message data_message;
     Message status_message;
     uint8_t buffer[NET_CMD_BUFSIZE];
-    void open_socket(Message *command, Message **reply, Message **status, int);
+    void open_socket(Message *command, Message **reply, Message **status, int
+#ifdef TLS_COPROCESSOR
+                     , bool secure
+#endif
+    );
     void read_socket(Message *command, Message **reply, Message **status);
     void write_socket(Message *command, Message **reply, Message **status);
     void close_socket(Message *command, Message **reply, Message **status);

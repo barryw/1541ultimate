@@ -132,6 +132,7 @@ void do_update(void)
         create_dir(ROMS_DIRECTORY);
         create_dir(CARTS_DIRECTORY);
         create_dir(HTML_DIRECTORY);
+        create_dir("/flash/data");
 
         if(original_kernal_found(flash2, 0x488000)) {
             copy_flash_binary(flash2, 0x488000, 0x2000, "kernal.bin");

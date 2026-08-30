@@ -3,6 +3,18 @@ name: Build
 on: [push, pull_request]
 
 jobs:
+  tls-tests:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Test TLS sockets and HTTPS
+        run: make tls_tests
+
   build:
     runs-on: self-hosted
     steps:

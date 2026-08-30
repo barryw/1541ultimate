@@ -10,3 +10,6 @@
 [submodule "software/lwip"]
 	path = software/lwip
 	url = https://github.com/GideonZ/lwip
+[submodule "software/mbedtls"]
+	path = software/mbedtls
+	url = https://github.com/Mbed-TLS/mbedtls.git

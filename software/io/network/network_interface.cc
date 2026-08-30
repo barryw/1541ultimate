@@ -59,6 +59,9 @@ void initLwip(void *a, void *b)
 
 InitFunction lwIP_initializer("LwIP Networking", initLwip, NULL, NULL, 50);
 IndexedList<NetworkInterface *> NetworkInterface :: netInterfaces(4, NULL);
+#ifdef TLS_COPROCESSOR
+static int preferredInterface = -1;
+#endif
 /**
  * Callbacks
  */
@@ -217,6 +220,11 @@ void NetworkInterface :: statusCallback(struct netif *net)
 #include "lwip/ip_addr.h"
 void NetworkInterface :: set_default_interface(void)
 {
+#ifdef TLS_COPROCESSOR
+    if (set_default_interface(preferredInterface)) {
+        return;
+    }
+#endif
     for(int i=0;i<getNumberOfInterfaces();i++) {
         NetworkInterface *intf = getInterface(i);
         printf("Checking interface %d: Up: %d. IP = %08x\n", i,
@@ -229,6 +237,31 @@ void NetworkInterface :: set_default_interface(void)
     }
     netif_set_default(&(getInterface(0)->my_net_if));
 }
+
+#ifdef TLS_COPROCESSOR
+bool NetworkInterface :: set_default_interface(int index)
+{
+    if (index < 0 || index >= getNumberOfInterfaces()) {
+        return false;
+    }
+    NetworkInterface *intf = getInterface(index);
+    if (!intf || !netif_is_up(&intf->my_net_if) || intf->my_net_if.ip_addr.addr == 0) {
+        return false;
+    }
+    preferredInterface = index;
+    netif_set_default(&intf->my_net_if);
+    return true;
+}
+
+uint32_t NetworkInterface :: get_preferred_ip(void)
+{
+    if (preferredInterface < 0 || preferredInterface >= getNumberOfInterfaces()) {
+        return 0;
+    }
+    NetworkInterface *intf = getInterface(preferredInterface);
+    return intf ? intf->my_net_if.ip_addr.addr : 0;
+}
+#endif
 
 void NetworkInterface :: statusUpdate(void)
 {

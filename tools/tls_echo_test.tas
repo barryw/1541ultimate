@@ -1,0 +1,323 @@
+; Ultimate 64 TLS/HTTPS smoke test. Override settings with 64tass -D.
+
+        .weak
+INTERFACE = 0
+HTTP_TEST = 0
+SERVER_PORT = 6464
+SERVER_NAME = "192.168.1.3"
+        .endweak
+
+UCI_CONTROL = $df1c
+UCI_COMMAND = $df1d
+UCI_RESULT  = $df1e
+UCI_STATUS  = $df1f
+
+CHROUT = $ffd2
+RESULT = $c000
+
+zp_ptr = $fb
+reply_length = $fd
+status_length = $fe
+
+* = $0801
+    .word basic_end
+    .word 10
+    .byte $9e
+    .text "2061"
+    .byte 0
+basic_end
+    .word 0
+
+* = $080d
+start
+    lda #'U'
+    sta RESULT
+    lda #'T'
+    sta RESULT+1
+    lda #'L'
+    sta RESULT+2
+    lda #'S'
+    sta RESULT+3
+    lda #0
+    sta RESULT+4
+    lda #INTERFACE
+    sta RESULT+5
+    sta opened
+
+    lda #<intro
+    ldy #>intro
+    jsr print_string
+
+    lda #<ip_command
+    ldy #>ip_command
+    ldx #ip_command_end-ip_command
+    jsr send_uci
+    lda reply_length
+    cmp #12
+    beq ip_ok
+    jmp failed
+ip_ok
+    ldx #3
+copy_ip
+    lda reply,x
+    sta RESULT+6,x
+    dex
+    bpl copy_ip
+
+    lda #<select_command
+    ldy #>select_command
+    ldx #select_command_end-select_command
+    jsr send_uci
+    lda status_length
+    beq interface_ok
+    jmp failed
+interface_ok
+
+    lda #<open_command
+    ldy #>open_command
+    ldx #open_command_end-open_command
+    jsr send_uci
+    lda reply_length
+    cmp #1
+    beq open_length_ok
+    jmp failed
+open_length_ok
+    lda reply
+    cmp #$80
+    beq open_handle_ok
+    jmp failed
+open_handle_ok
+    lda #1
+    sta opened
+
+    lda #<write_command
+    ldy #>write_command
+    ldx #write_command_end-write_command
+    jsr send_uci
+    lda reply_length
+    cmp #2
+    beq write_length_ok
+    jmp failed
+write_length_ok
+    lda reply
+    cmp #payload_length
+    beq write_count_low_ok
+    jmp failed
+write_count_low_ok
+    lda reply+1
+    beq write_count_ok
+    jmp failed
+write_count_ok
+
+    lda #40
+    sta attempts
+read_again
+    lda #<read_command
+    ldy #>read_command
+    ldx #read_command_end-read_command
+    jsr send_uci
+    lda reply_length
+    cmp #2
+    bcc retry
+    lda reply+1
+    bmi retry
+    lda reply
+    cmp #expected_length
+    bne retry
+
+    ldx #0
+compare
+    lda reply+2,x
+    cmp expected,x
+    bne failed
+    inx
+    cpx #expected_length
+    bne compare
+
+    jsr close
+    lda #1
+    sta RESULT+4
+    lda #<passed
+    ldy #>passed
+    jmp print_string
+
+retry
+    jsr delay
+    dec attempts
+    bne read_again
+
+failed
+    lda #$ff
+    sta RESULT+4
+    lda #<failure
+    ldy #>failure
+    jsr print_string
+    lda status_length
+    beq done
+    ldx #0
+print_status
+    lda status,x
+    jsr CHROUT
+    inx
+    cpx status_length
+    bne print_status
+    lda #13
+    jsr CHROUT
+done
+    jsr close
+    rts
+
+close
+    lda opened
+    beq close_done
+    lda #0
+    sta opened
+    lda #<close_command
+    ldy #>close_command
+    ldx #close_command_end-close_command
+    jmp send_uci
+close_done
+    rts
+
+; A/Y points to the command and X is its length.
+send_uci
+    sta zp_ptr
+    sty zp_ptr+1
+    stx command_length
+wait_idle
+    lda UCI_CONTROL
+    and #$30
+    bne wait_idle
+
+    ldy #0
+write_command_bytes
+    lda (zp_ptr),y
+    sta UCI_COMMAND
+    iny
+    cpy command_length
+    bne write_command_bytes
+
+    lda #1
+    sta UCI_CONTROL
+wait_processing
+    lda UCI_CONTROL
+    and #$30
+    cmp #$10
+    beq wait_processing
+
+    ldx #0
+read_reply
+    bit UCI_CONTROL
+    bpl reply_done
+    lda UCI_RESULT
+    sta reply,x
+    inx
+    bne read_reply
+reply_done
+    stx reply_length
+
+    ldx #0
+read_status
+    bit UCI_CONTROL
+    bvc status_done
+    lda UCI_STATUS
+    sta status,x
+    inx
+    bne read_status
+status_done
+    stx status_length
+
+    lda #2
+    sta UCI_CONTROL
+wait_ack
+    lda UCI_CONTROL
+    and #2
+    bne wait_ack
+    rts
+
+print_string
+    sta zp_ptr
+    sty zp_ptr+1
+    ldy #0
+next_character
+    lda (zp_ptr),y
+    beq string_done
+    jsr CHROUT
+    iny
+    bne next_character
+string_done
+    rts
+
+delay
+    ldx #0
+    ldy #0
+delay_loop
+    dey
+    bne delay_loop
+    dex
+    bne delay_loop
+    rts
+
+        .if HTTP_TEST
+intro   .text 147, "ULTIMATE 64 HTTPS TEST", 13, 0
+passed  .text 13, "PASSED: HTTPS WORKS!", 13, 0
+        .else
+intro   .text 147, "ULTIMATE 64 TLS ECHO TEST", 13, 0
+passed  .text 13, "PASSED: SECURE BINARY ECHO WORKS!", 13, 0
+        .endif
+failure .text 13, "FAILED: ", 0
+
+ip_command
+    .byte 3, $05, INTERFACE
+ip_command_end
+
+select_command
+    .byte 3, $03, INTERFACE
+select_command_end
+
+open_command
+    .byte 3, $12, <SERVER_PORT, >SERVER_PORT
+    .text SERVER_NAME
+open_command_end
+
+        .if HTTP_TEST
+payload
+    .text "GET /test HTTP/1.1", 13, 10, "HOST: ", SERVER_NAME, 13, 10
+    .text "CONNECTION: CLOSE", 13, 10, 13, 10
+payload_length = *-payload
+expected
+    .text "HTTP/1.1 200"
+expected_length = *-expected
+        .else
+payload
+    .byte 0, 1, $7f, $80, $ff
+    .text "BLOODY BOLLOCKS - TLS WORKS!"
+payload_length = *-payload
+expected = payload
+expected_length = payload_length
+        .endif
+
+write_command
+    .byte 3, $11, $80
+    .if HTTP_TEST
+    .text "GET /test HTTP/1.1", 13, 10, "HOST: ", SERVER_NAME, 13, 10
+    .text "CONNECTION: CLOSE", 13, 10, 13, 10
+    .else
+    .byte 0, 1, $7f, $80, $ff
+    .text "BLOODY BOLLOCKS - TLS WORKS!"
+    .endif
+write_command_end
+
+read_command
+    .byte 3, $10, $80, expected_length, 0
+read_command_end
+
+close_command
+    .byte 3, $09, $80
+close_command_end
+
+command_length .byte 0
+attempts       .byte 0
+opened         .byte 0
+reply          .fill 258, 0
+status         .fill 256, 0

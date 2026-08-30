@@ -7,6 +7,9 @@
 
 #include "network_target.h"
 #include "network_interface.h"
+#ifdef TLS_COPROCESSOR
+#include "tls_socket.h"
+#endif
 #include "socket.h"
 #include "netdb.h"
 #include <errno.h>
@@ -54,19 +57,20 @@ void NetworkTarget :: parse_command(Message *command, Message **reply, Message *
         	*reply  = &data_message;
             *status = &c_status_ok;
         	break;
-/*
+#ifdef TLS_COPROCESSOR
         case NET_CMD_SET_INTERFACE:
-        	*reply = &c_message_empty;
+	        *reply = &c_message_empty;
         	if (command->length != 3) {
         		*status = &c_status_invalid_params;
 	        } else if (command->message[2] >= (uint8_t)NetworkInterface :: getNumberOfInterfaces()) {
         		*status = &c_status_param_out_of_range;
-	        } else {
+	        } else if (NetworkInterface :: set_default_interface(command->message[2])) {
                 *status = &c_status_ok;
-        		interface_number = command->message[2];
-        	}
-        	break;
-*/
+	        } else {
+	            *status = &c_status_interface_not_set;
+	        }
+	        break;
+#endif
         case NET_CMD_GET_IPADDR:
             *reply = &c_message_empty;
             if (command->length != 3) {
@@ -136,7 +140,11 @@ void NetworkTarget :: parse_command(Message *command, Message **reply, Message *
                 *status = &c_status_invalid_params;
                 break;
             }
-            open_socket(command, reply, status, SOCK_STREAM);
+            open_socket(command, reply, status, SOCK_STREAM
+#ifdef TLS_COPROCESSOR
+                        , false
+#endif
+            );
 			break;
         case NET_CMD_OPEN_UDP:
             if (command->length < 5) { // Impossible
@@ -144,8 +152,22 @@ void NetworkTarget :: parse_command(Message *command, Message **reply, Message *
                 *status = &c_status_invalid_params;
                 break;
             }
-        	open_socket(command, reply, status, SOCK_DGRAM);
-        	break;
+            open_socket(command, reply, status, SOCK_DGRAM
+#ifdef TLS_COPROCESSOR
+                        , false
+#endif
+            );
+            break;
+#ifdef TLS_COPROCESSOR
+        case NET_CMD_OPEN_TLS:
+            if (command->length < 5) {
+                *reply = &c_message_empty;
+                *status = &c_status_invalid_params;
+                break;
+            }
+            open_socket(command, reply, status, SOCK_STREAM, true);
+            break;
+#endif
         case NET_CMD_CLOSE_SOCKET:
             if (command->length != 3) { // 2 + 1
                 *reply = &c_message_empty;
@@ -171,7 +193,11 @@ void NetworkTarget :: parse_command(Message *command, Message **reply, Message *
     }
 }
 
-void NetworkTarget :: open_socket(Message *command, Message **reply, Message **status, int type)
+void NetworkTarget :: open_socket(Message *command, Message **reply, Message **status, int type
+#ifdef TLS_COPROCESSOR
+                                  , bool secure
+#endif
+)
 {
 	*reply = &c_message_empty;
 	*status = &c_status_ok;
@@ -206,6 +232,22 @@ void NetworkTarget :: open_socket(Message *command, Message **reply, Message **s
 		return;
 	}
 
+#ifdef TLS_COPROCESSOR
+    uint32_t preferred_ip = NetworkInterface::get_preferred_ip();
+    if (preferred_ip) {
+        struct sockaddr_in local;
+        memset(&local, 0, sizeof(local));
+        local.sin_len = sizeof(local);
+        local.sin_family = AF_INET;
+        local.sin_addr.s_addr = preferred_ip;
+        if (bind(socket, (struct sockaddr *)&local, sizeof(local)) < 0) {
+            *status = &c_status_interface_not_set;
+            lwip_close(socket);
+            return;
+        }
+    }
+#endif
+
 	int ret = connect(socket, (struct sockaddr *)&addr, sizeof(addr));
 	if (ret < 0) {
 		*status = &status_message;
@@ -218,18 +260,32 @@ void NetworkTarget :: open_socket(Message *command, Message **reply, Message **s
 	if (socket > 255) {
         *status = &c_status_internal_error;
         lwip_close(socket);
-        return;
+		return;
 	}
 
-	*reply = &data_message;
-	this->data_message.message[0] = (uint8_t)socket;
-	this->data_message.length = 1;
-	data_message.last_part = true;
+	int handle = socket;
+#ifdef TLS_COPROCESSOR
+	if (secure) {
+		handle = tls_socket_open(socket, (const char *)&command->message[4]);
+		if (handle < 0) {
+			*status = &status_message;
+			sprintf((char *)this->status_message.message, "13,TLS ERROR: %d", handle);
+			this->status_message.length = strlen((char *)this->status_message.message);
+			lwip_close(socket);
+			return;
+		}
+	}
+#endif
 
 	struct timeval tv;
 	tv.tv_sec = 0;
 	tv.tv_usec = 40000; // 40 ms
 	setsockopt(socket, SOL_SOCKET, SO_RCVTIMEO, (char *)&tv, sizeof(struct timeval));
+
+	*reply = &data_message;
+	this->data_message.message[0] = (uint8_t)handle;
+	this->data_message.length = 1;
+	data_message.last_part = true;
 }
 
 void NetworkTarget :: read_socket(Message *command, Message **reply, Message **status)
@@ -244,7 +300,13 @@ void NetworkTarget :: read_socket(Message *command, Message **reply, Message **s
     }
 
     *reply = &data_message;
+#ifdef TLS_COPROCESSOR
+	int ret = tls_socket_is_handle(socketnr)
+	              ? tls_socket_read(&data_message.message[2], length)
+	              : lwip_recv(socketnr, &data_message.message[2], length, 0);
+#else
 	int ret = lwip_recv(socketnr, &data_message.message[2], length, 0);
+#endif
     data_message.length = 2;
     data_message.last_part = true;
     data_message.message[0] = (ret & 0xFF);
@@ -252,7 +314,15 @@ void NetworkTarget :: read_socket(Message *command, Message **reply, Message **s
 
     // printf("Reading %d bytes from socket %d resulted in %d\n", length, socketnr, ret);
 	if (ret == 0) {
+#ifdef TLS_COPROCESSOR
+		if (tls_socket_is_handle(socketnr)) {
+			tls_socket_close();
+		} else {
+			lwip_close(socketnr);
+		}
+#else
 		lwip_close(socketnr);
+#endif
 		*status = &c_status_socket_closed;
 		return;
 	}
@@ -272,7 +342,13 @@ void NetworkTarget :: write_socket(Message *command, Message **reply, Message **
     uint8_t *src = &command->message[3];
 
     int length = command->length - 3;
+#ifdef TLS_COPROCESSOR
+    int ret = tls_socket_is_handle(socketnr)
+                  ? tls_socket_write(src, length)
+                  : lwip_send(socketnr, src, length, 0);
+#else
     int ret = lwip_send(socketnr, src, length, 0);
+#endif
     // printf("Writing %d bytes to socket %d resulted in %d\n", length, socketnr, ret);
     // dump_hex_relative(src, length);
 
@@ -294,7 +370,13 @@ void NetworkTarget :: write_socket(Message *command, Message **reply, Message **
 void NetworkTarget :: close_socket(Message *command, Message **reply, Message **status)
 {
     uint8_t socketnr = command->message[2];
+#ifdef TLS_COPROCESSOR
+    int result = tls_socket_is_handle(socketnr)
+                     ? tls_socket_close()
+                     : lwip_close(socketnr);
+#else
     int result = lwip_close(socketnr);
+#endif
     *reply = &c_message_empty;
     if (result < 0) {
         *status = &status_message;

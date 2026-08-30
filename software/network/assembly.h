@@ -24,6 +24,9 @@ class Assembly
 
     int   connect_to_server(void);
     int read_socket(void);
+#ifdef TLS_COPROCESSOR
+    int write_socket(const void *buffer, size_t length);
+#endif
     void  get_response(HTTPREQ_CALLBACK callback);
     JSON *convert_buffer_to_json(t_BufferedBody *body);
     void  close_connection(void);
