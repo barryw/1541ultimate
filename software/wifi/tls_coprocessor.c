@@ -237,6 +237,23 @@ static int start_session(const rpc_tls_start_data *start, uint8_t *session_id)
     return result;
 }
 
+static int wire_result(int result)
+{
+    switch (result) {
+    case MBEDTLS_ERR_SSL_WANT_READ:
+        return TLS_RESULT_WANT_READ;
+    case MBEDTLS_ERR_SSL_WANT_WRITE:
+        return TLS_RESULT_WANT_WRITE;
+    case MBEDTLS_ERR_SSL_PEER_CLOSE_NOTIFY:
+    case MBEDTLS_ERR_SSL_CONN_EOF:
+        return TLS_RESULT_CLOSED;
+    case MBEDTLS_ERR_SSL_TIMEOUT:
+        return TLS_RESULT_TIMEOUT;
+    default:
+        return result;
+    }
+}
+
 static void respond(command_buf_t *buf, rpc_header_t header, uint8_t operation,
                     uint8_t session, int result, const uint8_t *data, size_t length)
 {
@@ -245,7 +262,7 @@ static void respond(command_buf_t *buf, rpc_header_t header, uint8_t operation,
     resp->operation = operation;
     resp->session = session;
     resp->length = (uint16_t)length;
-    resp->result = result;
+    resp->result = wire_result(result);
     if (length) {
         memcpy(&resp->data, data, length);
     }
@@ -361,6 +378,10 @@ void tls_coprocessor_handle(command_buf_t *buf)
             length = take_output(session, plain, sizeof(plain));
             free_session(session);
         }
+        break;
+    case TLS_OP_FEED:
+        result = session ? append_input(session, &req->data, req->length)
+                         : MBEDTLS_ERR_SSL_BAD_INPUT_DATA;
         break;
     default:
         result = MBEDTLS_ERR_SSL_BAD_INPUT_DATA;

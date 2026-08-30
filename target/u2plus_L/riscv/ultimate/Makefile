@@ -173,6 +173,7 @@ SRCS_CC	 =  u2pl_init.cc \
 			http_target.cc \
 			assembly_search.cc \
 			assembly.cc \
+			tls_socket.cc \
 			ftp_client.cc \
 			filesystem_a64.cc \
 			filesystem_ftp.cc \

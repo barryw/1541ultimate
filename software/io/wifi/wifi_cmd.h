@@ -8,6 +8,8 @@
 #ifndef WIFI_CMD_H_
 #define WIFI_CMD_H_
 
+#include <stddef.h>
+
 #include "dma_uart.h"
 #include "esp32.h"
 #include "FreeRTOS.h"
@@ -34,6 +36,10 @@ void wifi_command_init(void); // Sets the callback for the ISR
 int wifi_setbaud(int baudrate, uint8_t flowctrl);
 BaseType_t wifi_detect(uint16_t *major, uint16_t *minor, char *str, int maxlen);
 int wifi_getmac(uint8_t *mac);
+int wifi_tls_rpc(uint8_t operation, uint8_t session, uint8_t flags,
+                 const void *input, size_t input_length,
+                 void *output, size_t output_capacity, size_t *output_length,
+                 uint8_t *response_session);
 int wifi_scan(void *);
 int wifi_wifi_connect(const char *ssid, const char *password, uint8_t auth);
 int wifi_wifi_autoconnect();
