@@ -37,6 +37,7 @@ def main() -> None:
         assert "CONFIG_MBEDTLS_SSL_PROTO_TLS1_3=y" in config
         assert "CONFIG_MBEDTLS_SSL_TLS1_3_KEXM_EPHEMERAL=y" in config
         assert "# CONFIG_MBEDTLS_SSL_TLS1_3_KEXM_PSK is not set" in config
+        assert "CONFIG_MBEDTLS_HKDF_C=y" in config
         assert "CONFIG_MBEDTLS_TLS_CLIENT_ONLY=y" in config
 
     c3_config = (ROOT / "software/wifi/raw_c3/sdkconfig").read_text()
