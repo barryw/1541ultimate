@@ -79,10 +79,14 @@ NET_CMD_OPEN_UDP = 0x08
 NET_CMD_CLOSE_SOCKET = 0x09
 NET_CMD_READ_SOCKET = 0x10
 NET_CMD_WRITE_SOCKET = 0x11
+NET_CMD_OPEN_TLS = 0x12
 
 STATUS_OK = b"00,OK"
 STATUS_INVALID_PARAMS = b"81,INVALID PARAMS"
 STATUS_OUT_OF_RANGE = b"82,PARAMETER(S) OUT OF RANGE"
+STATUS_TLS_UNAVAILABLE = b"87,TLS NOT SUPPORTED"
+STATUS_TLS_ERROR_PREFIX = b"13,TLS ERROR:"
+STATUS_CERT_VERIFY_FAILED = STATUS_TLS_ERROR_PREFIX + b" -9984"
 # Not in the network target document, but what the firmware answers when
 # lwip_recv returns -1. The number is the errno: 9 is EBADF for a handle that
 # was never opened, 11 is EAGAIN for an open socket with nothing pending.
@@ -168,6 +172,8 @@ TESTS = [
     "multi-block-state-does-not-leak",
     "reset-closes-uci-sockets",
 ]
+OPTIONAL_TESTS = ["tls-https-client"]
+ALL_TESTS = TESTS + OPTIONAL_TESTS
 
 
 def pattern(size: int, seed: int = 0) -> bytes:
@@ -292,6 +298,9 @@ class Net:
 
     def open_tcp(self, ip: str, port: int) -> int:
         return self._open(NET_CMD_OPEN_TCP, ip, port, "OPEN_TCP")
+
+    def open_tls(self, hostname: str, port: int = 443):
+        return self.uci.transact(self.open_command(NET_CMD_OPEN_TLS, hostname, port))
 
     def write(self, handle: int, payload: bytes):
         return self.uci.transact(bytes([TARGET_NETWORK, NET_CMD_WRITE_SOCKET, handle]) + payload)
@@ -1216,6 +1225,76 @@ def restore_settings(device, original: Dict[str, str], keep: bool) -> bool:
     return ok
 
 
+def run_tls_https(net: Net) -> Optional[bool]:
+    """TLS verifies public certificates and carries an HTTP response."""
+    section("tls-https-client")
+    available = []
+    for index in range(net.interface_count()):
+        result = net.select_interface(index)
+        if result.status_text == STATUS_OK:
+            available.append((index, net.ip_address(index)))
+        else:
+            check_start(f"TLS interface {index} is available")
+            check_skip(f"SET_INTERFACE answered {result.status_text!r}")
+    if not available:
+        raise Failure("no network interface is available for TLS")
+
+    for index, ip in available:
+        started = time.monotonic()
+        opened = net.open_tls("example.com")
+        if opened.status_text == STATUS_TLS_UNAVAILABLE:
+            check_start("this product includes the TLS coprocessor client")
+            check_skip(STATUS_TLS_UNAVAILABLE.decode())
+            return None
+        with check(f"TLS connects through interface {index} ({ip})"):
+            if opened.status_text != STATUS_OK or len(opened.data) != 1:
+                raise Failure(f"OPEN_TLS answered {opened.status_text!r} with "
+                              f"reply {opened.data!r}")
+            detail(f"handshake completed in {time.monotonic() - started:.3f}s")
+
+        handle = opened.data[0]
+        try:
+            request = (b"GET / HTTP/1.1\r\nHost: example.com\r\n"
+                       b"Connection: close\r\n\r\n")
+            with check(f"TLS writes an HTTPS request through interface {index}"):
+                result = net.write(handle, request)
+                written = (int.from_bytes(result.data[:2], "little", signed=True)
+                           if len(result.data) >= 2 else -1)
+                if result.status_text != STATUS_OK or written != len(request):
+                    raise Failure(f"WRITE_SOCKET wrote {written} of {len(request)} bytes, "
+                                  f"status {result.status_text!r}")
+
+            response = bytearray()
+            deadline = time.monotonic() + PEER_TIMEOUT_SECONDS
+            while time.monotonic() < deadline and b"\r\n\r\n" not in response:
+                result = net.read(handle, SAFE_READ)
+                response += result.payload
+                if not result.payload:
+                    if result.status_text.startswith(STATUS_NO_DATA_PREFIX):
+                        time.sleep(0.05)
+                        continue
+                    break
+            with check(f"TLS reads an HTTPS response through interface {index}"):
+                first_line = bytes(response).split(b"\r\n", 1)[0]
+                detail(first_line.decode("ascii", "replace"))
+                if not first_line.startswith(b"HTTP/") or b" 200 " not in first_line:
+                    raise Failure(f"expected an HTTP 200 response, got {first_line!r}")
+        finally:
+            net.close(handle)
+
+    for hostname in ("self-signed.badssl.com", "wrong.host.badssl.com"):
+        with check(f"TLS rejects {hostname}'s certificate"):
+            result = net.open_tls(hostname)
+            if result.status_text == STATUS_OK:
+                if result.data:
+                    net.close(result.data[0])
+                raise Failure("OPEN_TLS accepted the certificate")
+            if result.status_text != STATUS_CERT_VERIFY_FAILED:
+                raise Failure(f"expected certificate verification error "
+                              f"{STATUS_CERT_VERIFY_FAILED!r}, got {result.status_text!r}")
+    return True
+
+
 def build_driver(route: str, computer, busy_timeout: float):
     """The driver for one route, ready to use."""
     if route == "rest":
@@ -1237,7 +1316,7 @@ def main() -> int:
     parser.add_argument("-b", "--busy-timeout", type=float, default=15.0,
                         help="How long one command may stay in Command Busy before it "
                              "counts as wedged.")
-    parser.add_argument("--test", action="append", choices=["all"] + TESTS)
+    parser.add_argument("--test", action="append", choices=["all"] + ALL_TESTS)
     parser.add_argument("--route", action="append", choices=["all"] + ROUTES,
                         help="How to reach $DF1C-$DF1F: 'rest' for DMA cycles the "
                              "Ultimate issues, 'native' for 6502 code running on the "
@@ -1246,7 +1325,9 @@ def main() -> int:
                         help="Don't restore the original Command Interface setting on exit.")
     args = parser.parse_args()
 
-    selected = TESTS if not args.test or "all" in args.test else [t for t in TESTS if t in args.test]
+    selected = (TESTS if not args.test else
+                ALL_TESTS if "all" in args.test else
+                [t for t in ALL_TESTS if t in args.test])
     routes = ROUTES if not args.route or "all" in args.route else [r for r in ROUTES if r in args.route]
     target = targets.parse(args.host)
     device = UltimateApi(target.device, args.password, args.timeout)
@@ -1370,6 +1451,7 @@ def main() -> int:
                 detail(identity.data.decode("latin-1"))
 
             run(route, "read-length-limit", run_read_length_limit, net)
+            run(route, "tls-https-client", run_tls_https, net)
             if peer is None:
                 for name in needs_peer:
                     results.setdefault(f"{name} [{route}]", None)

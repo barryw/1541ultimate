@@ -9,6 +9,7 @@
 #define IO_NETWORK_NETWORK_TARGET_H_
 
 #include "command_intf.h"
+#include "network_socket.h"
 
 #define NET_CMD_IDENTIFY            0x01
 #define NET_CMD_GET_INTERFACE_COUNT 0x02
@@ -21,6 +22,7 @@
 #define NET_CMD_CLOSE_SOCKET        0x09
 #define NET_CMD_READ_SOCKET         0x10
 #define NET_CMD_WRITE_SOCKET        0x11
+#define NET_CMD_OPEN_TLS            0x12
 
 #define NET_CMD_BUFSIZE 2048
 
@@ -69,19 +71,17 @@ class NetworkTarget : public CommandTarget {
     int read_offset;
     Message *read_status;
 
-    // The sockets this target opened, oldest first. It reads, writes and
-    // closes only these, so a stale handle cannot reach a socket the firmware
-    // opened for itself. Any command handing out a socket must track it here.
-    int sockets[NET_MAX_SOCKETS];
-    int socket_count;
+    // UCI handles index this table; they are never raw lwIP descriptors. A
+    // stale handle therefore cannot reach a socket opened by other firmware.
+    NetworkSocket *sockets[NET_MAX_SOCKETS];
     int interface_number;
 
-    bool track_socket(int socketnr);
-    void untrack_socket(int socketnr);
-    bool owns_socket(int socketnr);
+    int track_socket(NetworkSocket *socket);
+    NetworkSocket *get_socket(int handle);
+    NetworkSocket *untrack_socket(int handle);
     void close_all_sockets(void);
 
-    void open_socket(Message *command, Message **reply, Message **status, int);
+    void open_socket(Message *command, Message **reply, Message **status, int, bool secure);
     void read_socket(Message *command, Message **reply, Message **status);
     void write_socket(Message *command, Message **reply, Message **status);
     void close_socket(Message *command, Message **reply, Message **status);

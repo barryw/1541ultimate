@@ -22,7 +22,7 @@ static bool tls_timed_out(unsigned long started)
 }
 
 TlsSocket::TlsSocket(int fd)
-    : socket_fd(fd), session_id(TLS_NEW_SESSION), active(false)
+    : socket_fd(fd), last_error(0), session_id(TLS_NEW_SESSION), active(false)
 {
 }
 
@@ -33,6 +33,7 @@ TlsSocket::~TlsSocket()
 
 int TlsSocket::fail(int result)
 {
+    last_error = result;
     if (result == TLS_RESULT_TIMEOUT) {
         errno = ETIMEDOUT;
     } else if (result == TLS_RESULT_CLOSED) {
@@ -124,17 +125,19 @@ int TlsSocket::send_output(size_t length, unsigned long started)
 
 int TlsSocket::handshake(const char *hostname)
 {
-    if (!hostname || !hostname[0] || socket_fd < 0 || active) {
+    rpc_tls_start_data start = { 0 };
+    if (!hostname || !hostname[0] || strlen(hostname) >= sizeof(start.hostname) ||
+        socket_fd < 0 || active) {
         errno = EINVAL;
+        last_error = -EINVAL;
         return -1;
     }
 
-    rpc_tls_start_data start = { 0 };
     time_t now = time(NULL);
     if (now > 0 && (uint64_t)now <= UINT32_MAX) {
         start.unix_time = (uint32_t)now;
     }
-    strncpy(start.hostname, hostname, sizeof(start.hostname) - 1);
+    strcpy(start.hostname, hostname);
 
     uint8_t allocated = TLS_NEW_SESSION;
     int result = wifi_tls_rpc(TLS_OP_START, TLS_NEW_SESSION, 0,
@@ -176,8 +179,10 @@ int TlsSocket::handshake(const char *hostname)
         errno = ETIMEDOUT;
     }
     int saved_errno = errno ? errno : EIO;
+    int saved_error = last_error ? last_error : -saved_errno;
     close();
     errno = saved_errno;
+    last_error = saved_error;
     return -1;
 }
 
@@ -232,7 +237,7 @@ int TlsSocket::write(const void *data, size_t length)
     return (int)total;
 }
 
-int TlsSocket::read(void *data, size_t length)
+int TlsSocket::read(void *data, size_t length, bool *truncated)
 {
     if (!active || (!data && length)) {
         errno = EINVAL;
@@ -240,6 +245,9 @@ int TlsSocket::read(void *data, size_t length)
     }
     if (!length) {
         return 0;
+    }
+    if (truncated) {
+        *truncated = false;
     }
 
     uint16_t requested = length > TLS_RESPONSE_MAX
@@ -309,3 +317,25 @@ int TlsSocket::close(void)
     }
     return status;
 }
+
+static NetworkSocket *create_tls_socket(int fd, const char *hostname, int *tls_error)
+{
+    TlsSocket *socket = new TlsSocket(fd);
+    if (socket->handshake(hostname) == 0) {
+        return socket;
+    }
+    if (tls_error) {
+        *tls_error = socket->error();
+    }
+    int saved_errno = errno;
+    delete socket;
+    errno = saved_errno;
+    return NULL;
+}
+
+class TlsSocketRegistration {
+public:
+    TlsSocketRegistration() { tls_socket_factory = create_tls_socket; }
+};
+
+static TlsSocketRegistration tls_socket_registration;
