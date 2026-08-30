@@ -86,11 +86,6 @@ int tls_coprocessor_init(void)
     static const unsigned char personal[] = "Ultimate TLS";
     int result = mbedtls_ctr_drbg_seed(&rng, mbedtls_entropy_func, &entropy,
                                       personal, sizeof(personal) - 1);
-#ifdef ESP_PLATFORM
-    if (result == 0) {
-        result = esp_crt_bundle_attach(NULL);
-    }
-#endif
     if (result != 0) {
         mbedtls_ctr_drbg_free(&rng);
         mbedtls_entropy_free(&entropy);

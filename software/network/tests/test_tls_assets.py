@@ -19,7 +19,7 @@ def main() -> None:
     assert '#define CA_FILENAME "custom-ca.pem"' in tls_source
     assert "ca_bundle_sha256" not in tls_source
     assert '#include "esp_crt_bundle.h"' in coprocessor
-    assert "esp_crt_bundle_attach(NULL)" in coprocessor
+    assert "esp_crt_bundle_attach(NULL)" not in coprocessor
     assert coprocessor.index("esp_crt_bundle_attach(&config)") < coprocessor.index(
         "mbedtls_ssl_conf_ca_chain(&config, &ca_roots, NULL)"
     )
