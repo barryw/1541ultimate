@@ -68,7 +68,14 @@ copy_ip
     ldy #>select_command
     ldx #select_command_end-select_command
     jsr send_uci
-    lda status_length
+    lda status
+    cmp #'0'
+    beq +
+    jmp failed
+    
++
+    lda status+1
+    cmp #'0'
     beq interface_ok
     jmp failed
 interface_ok
@@ -147,6 +154,12 @@ retry
     bne read_again
 
 failed
+    lda reply_length
+    sta RESULT+6
+    lda status_length
+    sta RESULT+7
+    lda UCI_CONTROL
+    sta RESULT+8
     lda #$ff
     sta RESULT+4
     lda #<failure
@@ -199,11 +212,10 @@ write_command_bytes
 
     lda #1
     sta UCI_CONTROL
-wait_processing
+wait_result
     lda UCI_CONTROL
-    and #$30
-    cmp #$10
-    beq wait_processing
+    and #$20
+    beq wait_result
 
     ldx #0
 read_reply
