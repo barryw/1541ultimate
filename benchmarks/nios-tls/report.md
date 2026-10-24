@@ -6,7 +6,7 @@ Status: completed on U64 Elite hardware. This is a diagnostic branch, not a firm
 
 - Source: GideonZ/1541ultimate `master` at `99784768a7cb32d1580e7960e9ac96e16595f30d`.
 - Build host: beast, Quartus 18.1 Build 625, Nios GCC 5.3.0, `-Os -mno-hw-mul`. Generated U64 BSP says hardware multiply and divide are absent; benchmark keeps shipping compiler flags. BSP's `ALT_CPU_CPU_FREQ` says 62.5 MHz while application `CLOCK_FREQ` says 66.67 MHz, so this report does not derive cycle counts from either.
-- TLS: Mbed TLS 3.6.7 (`068ff080b369adfac81509f9b57b2afabaf82dc5`), TLS 1.2, `ECDHE-ECDSA-CHACHA20-POLY1305` only. Nios build only enables P-256/P-384; matched peer now pins P-256 explicitly.
+- TLS: Mbed TLS 3.6.7 (`068ff080b369adfac81509f9b57b2afabaf82dc5`), TLS 1.2, `ECDHE-ECDSA-CHACHA20-POLY1305` only. Nios build only enables P-256/P-384; historical peer did not log ECDHE group. Shared peer now pins P-256 for repeat Nios and ESP32 runs.
 - Certificate: local ECDSA P-256 CA and `bench.local` ECDSA P-256 server leaf; certificate chain, hostname, purpose and validity dates checked. Peer runs on beast `192.168.1.3:18443`.
 - Test CA SHA-256 fingerprint: `A0:8B:54:9B:F4:5F:AF:E6:41:DB:FD:37:38:3B:45:C8:97:72:C9:2D:66:BF:FC:C4:AE:6D:FB:75:37:59:29:89`; valid 2026-10-24 through 2027-01-22 UTC.
 - Payload: 262,144 bytes `bytes(range(256)) * 1024`, checked byte for byte. Independent plain TCP peer sends identical payload on port 18444.

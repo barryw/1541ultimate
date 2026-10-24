@@ -22,11 +22,13 @@ The server sends `bytes(range(256)) * 1024` after receiving one `B` byte and the
 ```sh
 git submodule update --init --recursive
 . ~/quartus18-env.sh
+. "$IDF_PATH/export.sh"
 export PATH=$HOME/bin:$PATH
+make esp32_raw_u64
 make u64_no_esp
 ```
 
-Build image is `update.u64`. This path omits ESP32 rebuild and compiles Mbed TLS library before U64 application. Flash only on a U64 you can recover. The firmware client uses a fixed peer IP and deterministic entropy; it will refuse an RTC date before 2025. On a device with no REST password:
+Fresh checkout needs ESP32 blobs once for updater packaging; later `make u64_no_esp` omits ESP32 rebuild and compiles Mbed TLS library before U64 application. Build image is `update.u64`. Flash only on a U64 you can recover. The firmware client uses a fixed peer IP and deterministic entropy; it will refuse an RTC date before 2025. On a device with no REST password:
 
 ```sh
 python3 tools/tls_bench_collect.py --host 192.168.1.148 --runs 12 --output nios-results.json
@@ -41,4 +43,4 @@ The three-run profile used a separate image. Apply `profile-ecp.patch` to the Mb
 
 ## Results
 
-`nios-results.json`, `nios-profile-results.json`, and `nios-latency.json` hold raw measured records. U64 hostname, unique ID and MAC addresses were removed from the copies here; timing and firmware/version fields are unchanged. [report.md](report.md) states hardware conditions, app size delta, summary and limits. Git metadata and build timestamp make firmware binaries non-reproducible byte for byte.
+`nios-results.json`, `nios-profile-results.json`, and `nios-latency.json` hold raw measured records. U64 hostname, unique ID and MAC addresses were removed from the copies here; timing and firmware/version fields are unchanged. [report.md](report.md) states hardware conditions, app size delta, summary and limits. Historical Nios peer did not pin or log ECDHE group; this fixture now pins P-256 so a matched ESP32 comparison should repeat Nios runs too. Git metadata and build timestamp make firmware binaries non-reproducible byte for byte.
