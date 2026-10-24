@@ -1,0 +1,66 @@
+--- a/library/ecp.c
++++ b/library/ecp.c
+@@ -65,6 +65,7 @@
+ #include "mbedtls/ecp.h"
+ #include "mbedtls/threading.h"
+ #include "mbedtls/platform_util.h"
++#include "mbedtls/platform_time.h"
+ #include "mbedtls/error.h"
+ 
+ #include "bn_mul.h"
+@@ -73,6 +74,13 @@
+ #include "ecp_invasive.h"
+ 
+ #include <string.h>
++
++#if defined(TLS_BENCH_PROFILE)
++volatile uint32_t tls_bench_ecp_mul_ms;
++volatile uint32_t tls_bench_ecp_mul_calls;
++volatile uint32_t tls_bench_ecp_muladd_ms;
++volatile uint32_t tls_bench_ecp_muladd_calls;
++#endif
+ 
+ #if !defined(MBEDTLS_ECP_ALT)
+ 
+@@ -2670,11 +2678,19 @@
+                                 int (*f_rng)(void *, unsigned char *, size_t), void *p_rng,
+                                 mbedtls_ecp_restart_ctx *rs_ctx)
+ {
++#if defined(TLS_BENCH_PROFILE)
++    mbedtls_ms_time_t started = mbedtls_ms_time();
++#endif
+     if (f_rng == NULL) {
+         return MBEDTLS_ERR_ECP_BAD_INPUT_DATA;
+     }
+ 
+-    return ecp_mul_restartable_internal(grp, R, m, P, f_rng, p_rng, rs_ctx);
++    int result = ecp_mul_restartable_internal(grp, R, m, P, f_rng, p_rng, rs_ctx);
++#if defined(TLS_BENCH_PROFILE)
++    tls_bench_ecp_mul_ms += (uint32_t)(mbedtls_ms_time() - started);
++    tls_bench_ecp_mul_calls++;
++#endif
++    return result;
+ }
+ 
+ /*
+@@ -2774,6 +2790,9 @@
+     const mbedtls_mpi *n, const mbedtls_ecp_point *Q,
+     mbedtls_ecp_restart_ctx *rs_ctx)
+ {
++#if defined(TLS_BENCH_PROFILE)
++    mbedtls_ms_time_t started = mbedtls_ms_time();
++#endif
+     int ret = MBEDTLS_ERR_ERROR_CORRUPTION_DETECTED;
+     mbedtls_ecp_point mP;
+     mbedtls_ecp_point *pmP = &mP;
+@@ -2865,6 +2884,10 @@
+ 
+     ECP_RS_LEAVE(ma);
+ 
++#if defined(TLS_BENCH_PROFILE)
++    tls_bench_ecp_muladd_ms += (uint32_t)(mbedtls_ms_time() - started);
++    tls_bench_ecp_muladd_calls++;
++#endif
+     return ret;
+ }
+ 

@@ -188,6 +188,7 @@ SRCS_CC	 =  u2p_init.cc \
 			route_runners.cc \
 			route_configs.cc \
 			route_machine.cc \
+			tls_bench.cc \
 			route_input.cc \
 			route_streams.cc \
 			http_request.cc \
@@ -229,6 +230,7 @@ VPATH +=	$(BSP)/HAL/inc
 VPATH +=	$(BSP)/drivers/inc
 VPATH +=	$(PATH_SW)/6502/sidcrt/target
 VPATH +=	$(PATH_SW)/wifi/raw_u64/main
+VPATH +=	$(PATH_SW)/mbedtls/include
 
 #            sock_echo.c \
 #			sys_calls.cc \
@@ -251,9 +253,9 @@ SRCS_NANO = nano_minimal.nan
 PATH_INC =  $(addprefix -I, $(VPATH))
 OPTIONS  = -g -ffunction-sections -Os -DOS -DDEVELOPER=0 -DNIOS=1 -DCLOCK_FREQ=66666667 -DU64=1 -Wno-write-strings -mno-hw-div -mno-hw-mul -mno-hw-mulx
 COPTIONS = $(OPTIONS) -std=gnu99
-CPPOPT   = $(OPTIONS) -std=gnu++11 -fno-exceptions -fno-rtti -fno-threadsafe-statics -fpermissive
+CPPOPT   = $(OPTIONS) -std=gnu++11 -fno-exceptions -fno-rtti -fno-threadsafe-statics -fpermissive -DMBEDTLS_CONFIG_FILE='"ultimate_mbedtls_config.h"'
 LINK 	 = $(BSP)/linker.x
-LIBS2    = $(BSP)/libhal_bsp.a ../../../libs/nios2/lwip/result/liblwip.a
+LIBS2    = $(BSP)/libhal_bsp.a ../../../libs/nios2/lwip/result/liblwip.a ../../../libs/nios2/mbedtls/result/libmbedtls.a
 LFLAGS   = --gc-sections -msys-crt0=$(BSP)/obj/HAL/src/crt0.o -Wl,--wrap=malloc,--wrap=_malloc_r,--wrap=free,--wrap=_free_r,--wrap=realloc,--wrap=_realloc_r,--wrap=calloc,--wrap=_calloc_r
 
 include ../../../common/rules.mk

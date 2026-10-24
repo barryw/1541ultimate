@@ -1,0 +1,171 @@
+{
+  "firmware": {
+    "product": "Ultimate 64 Elite",
+    "firmware_version": "3.15a",
+    "git_commit_hash": "99784768",
+    "fpga_version": "126",
+    "core_version": "1.50",
+    "errors": []
+  },
+  "peer": "192.168.1.3:18443",
+  "payload_bytes": 262144,
+  "warmup": {
+    "state": "complete",
+    "error": 0,
+    "verify_flags": 0,
+    "tcp_ms": 0,
+    "setup_ms": 15,
+    "handshake_ms": 35750,
+    "transfer_ms": 7320,
+    "bytes": 262144,
+    "plain_tcp_ms": 0,
+    "plain_transfer_ms": 305,
+    "plain_bytes": 262144,
+    "heap_before": 5266656,
+    "heap_after": 5267936,
+    "global_min_heap": 5242712,
+    "stack_free_words": 7229,
+    "ecp_mul_ms": 11755,
+    "ecp_mul_calls": 2,
+    "ecp_muladd_ms": 23720,
+    "ecp_muladd_calls": 2,
+    "entropy": "deterministic_test_only",
+    "tls": "1.2 ECDHE-ECDSA CHACHA20-POLY1305",
+    "errors": [],
+    "idle_heap_free": 5301044
+  },
+  "runs": [
+    {
+      "state": "complete",
+      "error": 0,
+      "verify_flags": 0,
+      "tcp_ms": 5,
+      "setup_ms": 10,
+      "handshake_ms": 35750,
+      "transfer_ms": 7330,
+      "bytes": 262144,
+      "plain_tcp_ms": 5,
+      "plain_transfer_ms": 290,
+      "plain_bytes": 262144,
+      "heap_before": 5265928,
+      "heap_after": 5267608,
+      "global_min_heap": 5242412,
+      "stack_free_words": 7229,
+      "ecp_mul_ms": 11765,
+      "ecp_mul_calls": 2,
+      "ecp_muladd_ms": 23695,
+      "ecp_muladd_calls": 2,
+      "entropy": "deterministic_test_only",
+      "tls": "1.2 ECDHE-ECDSA CHACHA20-POLY1305",
+      "errors": [],
+      "idle_heap_free": 5301044
+    },
+    {
+      "state": "complete",
+      "error": 0,
+      "verify_flags": 0,
+      "tcp_ms": 5,
+      "setup_ms": 10,
+      "handshake_ms": 35745,
+      "transfer_ms": 7305,
+      "bytes": 262144,
+      "plain_tcp_ms": 0,
+      "plain_transfer_ms": 290,
+      "plain_bytes": 262144,
+      "heap_before": 5266472,
+      "heap_after": 5267940,
+      "global_min_heap": 5242412,
+      "stack_free_words": 7229,
+      "ecp_mul_ms": 11770,
+      "ecp_mul_calls": 2,
+      "ecp_muladd_ms": 23690,
+      "ecp_muladd_calls": 2,
+      "entropy": "deterministic_test_only",
+      "tls": "1.2 ECDHE-ECDSA CHACHA20-POLY1305",
+      "errors": [],
+      "idle_heap_free": 5301044
+    },
+    {
+      "state": "complete",
+      "error": 0,
+      "verify_flags": 0,
+      "tcp_ms": 5,
+      "setup_ms": 10,
+      "handshake_ms": 35740,
+      "transfer_ms": 7330,
+      "bytes": 262144,
+      "plain_tcp_ms": 0,
+      "plain_transfer_ms": 300,
+      "plain_bytes": 262144,
+      "heap_before": 5266472,
+      "heap_after": 5266112,
+      "global_min_heap": 5242412,
+      "stack_free_words": 7229,
+      "ecp_mul_ms": 11770,
+      "ecp_mul_calls": 2,
+      "ecp_muladd_ms": 23695,
+      "ecp_muladd_calls": 2,
+      "entropy": "deterministic_test_only",
+      "tls": "1.2 ECDHE-ECDSA CHACHA20-POLY1305",
+      "errors": [],
+      "idle_heap_free": 5301044
+    }
+  ],
+  "conditions": {
+    "tls": "1.2 ECDHE-ECDSA CHACHA20-POLY1305",
+    "authenticated": true,
+    "entropy": "deterministic test fixture; no secrets",
+    "time": "RTC local time converted to UTC",
+    "client": "Nios II/f, -Os -mno-hw-mul, FreeRTOS task priority 1"
+  },
+  "summary": {
+    "tcp_ms": {
+      "min": 5,
+      "median": 5,
+      "p95": 5,
+      "max": 5
+    },
+    "setup_ms": {
+      "min": 10,
+      "median": 10,
+      "p95": 10,
+      "max": 10
+    },
+    "handshake_ms": {
+      "min": 35740,
+      "median": 35745,
+      "p95": 35745,
+      "max": 35750
+    },
+    "transfer_ms": {
+      "min": 7305,
+      "median": 7330,
+      "p95": 7330,
+      "max": 7330
+    },
+    "plain_tcp_ms": {
+      "min": 0,
+      "median": 0,
+      "p95": 0,
+      "max": 5
+    },
+    "plain_transfer_ms": {
+      "min": 290,
+      "median": 290,
+      "p95": 290,
+      "max": 300
+    },
+    "stack_free_words": {
+      "min": 7229,
+      "median": 7229,
+      "p95": 7229,
+      "max": 7229
+    },
+    "idle_heap_free": {
+      "min": 5301044,
+      "median": 5301044,
+      "p95": 5301044,
+      "max": 5301044
+    }
+  }
+}

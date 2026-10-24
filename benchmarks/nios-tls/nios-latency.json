@@ -1,0 +1,602 @@
+{
+  "idle": [
+    {
+      "elapsed_ms": 19.927,
+      "error": null
+    },
+    {
+      "elapsed_ms": 8.885,
+      "error": null
+    },
+    {
+      "elapsed_ms": 8.874,
+      "error": null
+    },
+    {
+      "elapsed_ms": 8.873,
+      "error": null
+    },
+    {
+      "elapsed_ms": 8.724,
+      "error": null
+    },
+    {
+      "elapsed_ms": 8.919,
+      "error": null
+    },
+    {
+      "elapsed_ms": 8.851,
+      "error": null
+    },
+    {
+      "elapsed_ms": 8.857,
+      "error": null
+    },
+    {
+      "elapsed_ms": 9.153,
+      "error": null
+    },
+    {
+      "elapsed_ms": 8.781,
+      "error": null
+    },
+    {
+      "elapsed_ms": 9.412,
+      "error": null
+    },
+    {
+      "elapsed_ms": 8.852,
+      "error": null
+    },
+    {
+      "elapsed_ms": 8.822,
+      "error": null
+    },
+    {
+      "elapsed_ms": 9.185,
+      "error": null
+    },
+    {
+      "elapsed_ms": 8.487,
+      "error": null
+    },
+    {
+      "elapsed_ms": 8.85,
+      "error": null
+    },
+    {
+      "elapsed_ms": 8.701,
+      "error": null
+    },
+    {
+      "elapsed_ms": 9.077,
+      "error": null
+    },
+    {
+      "elapsed_ms": 8.842,
+      "error": null
+    },
+    {
+      "elapsed_ms": 9.22,
+      "error": null
+    },
+    {
+      "elapsed_ms": 8.702,
+      "error": null
+    },
+    {
+      "elapsed_ms": 8.758,
+      "error": null
+    },
+    {
+      "elapsed_ms": 8.999,
+      "error": null
+    },
+    {
+      "elapsed_ms": 8.847,
+      "error": null
+    },
+    {
+      "elapsed_ms": 9.134,
+      "error": null
+    },
+    {
+      "elapsed_ms": 8.813,
+      "error": null
+    },
+    {
+      "elapsed_ms": 8.994,
+      "error": null
+    },
+    {
+      "elapsed_ms": 8.812,
+      "error": null
+    },
+    {
+      "elapsed_ms": 9.157,
+      "error": null
+    },
+    {
+      "elapsed_ms": 8.442,
+      "error": null
+    }
+  ],
+  "busy": [
+    {
+      "elapsed_ms": 27.957,
+      "error": null,
+      "since_start_ms": 28
+    },
+    {
+      "elapsed_ms": 20.931,
+      "error": null,
+      "since_start_ms": 549
+    },
+    {
+      "elapsed_ms": 19.955,
+      "error": null,
+      "since_start_ms": 1069
+    },
+    {
+      "elapsed_ms": 24.91,
+      "error": null,
+      "since_start_ms": 1594
+    },
+    {
+      "elapsed_ms": 25.038,
+      "error": null,
+      "since_start_ms": 2119
+    },
+    {
+      "elapsed_ms": 20.0,
+      "error": null,
+      "since_start_ms": 2639
+    },
+    {
+      "elapsed_ms": 24.659,
+      "error": null,
+      "since_start_ms": 3164
+    },
+    {
+      "elapsed_ms": 20.233,
+      "error": null,
+      "since_start_ms": 3684
+    },
+    {
+      "elapsed_ms": 24.58,
+      "error": null,
+      "since_start_ms": 4209
+    },
+    {
+      "elapsed_ms": 24.827,
+      "error": null,
+      "since_start_ms": 4734
+    },
+    {
+      "elapsed_ms": 25.191,
+      "error": null,
+      "since_start_ms": 5259
+    },
+    {
+      "elapsed_ms": 24.733,
+      "error": null,
+      "since_start_ms": 5784
+    },
+    {
+      "elapsed_ms": 25.552,
+      "error": null,
+      "since_start_ms": 6309
+    },
+    {
+      "elapsed_ms": 24.215,
+      "error": null,
+      "since_start_ms": 6834
+    },
+    {
+      "elapsed_ms": 25.056,
+      "error": null,
+      "since_start_ms": 7359
+    },
+    {
+      "elapsed_ms": 24.754,
+      "error": null,
+      "since_start_ms": 7884
+    },
+    {
+      "elapsed_ms": 24.898,
+      "error": null,
+      "since_start_ms": 8409
+    },
+    {
+      "elapsed_ms": 24.913,
+      "error": null,
+      "since_start_ms": 8934
+    },
+    {
+      "elapsed_ms": 25.072,
+      "error": null,
+      "since_start_ms": 9459
+    },
+    {
+      "elapsed_ms": 24.733,
+      "error": null,
+      "since_start_ms": 9984
+    },
+    {
+      "elapsed_ms": 20.13,
+      "error": null,
+      "since_start_ms": 10504
+    },
+    {
+      "elapsed_ms": 24.564,
+      "error": null,
+      "since_start_ms": 11029
+    },
+    {
+      "elapsed_ms": 25.228,
+      "error": null,
+      "since_start_ms": 11554
+    },
+    {
+      "elapsed_ms": 25.092,
+      "error": null,
+      "since_start_ms": 12079
+    },
+    {
+      "elapsed_ms": 24.452,
+      "error": null,
+      "since_start_ms": 12604
+    },
+    {
+      "elapsed_ms": 19.887,
+      "error": null,
+      "since_start_ms": 13123
+    },
+    {
+      "elapsed_ms": 24.929,
+      "error": null,
+      "since_start_ms": 13649
+    },
+    {
+      "elapsed_ms": 24.952,
+      "error": null,
+      "since_start_ms": 14174
+    },
+    {
+      "elapsed_ms": 25.076,
+      "error": null,
+      "since_start_ms": 14699
+    },
+    {
+      "elapsed_ms": 24.762,
+      "error": null,
+      "since_start_ms": 15224
+    },
+    {
+      "elapsed_ms": 24.82,
+      "error": null,
+      "since_start_ms": 15748
+    },
+    {
+      "elapsed_ms": 24.985,
+      "error": null,
+      "since_start_ms": 16273
+    },
+    {
+      "elapsed_ms": 25.107,
+      "error": null,
+      "since_start_ms": 16799
+    },
+    {
+      "elapsed_ms": 24.697,
+      "error": null,
+      "since_start_ms": 17323
+    },
+    {
+      "elapsed_ms": 24.953,
+      "error": null,
+      "since_start_ms": 17848
+    },
+    {
+      "elapsed_ms": 24.887,
+      "error": null,
+      "since_start_ms": 18373
+    },
+    {
+      "elapsed_ms": 25.073,
+      "error": null,
+      "since_start_ms": 18898
+    },
+    {
+      "elapsed_ms": 24.751,
+      "error": null,
+      "since_start_ms": 19423
+    },
+    {
+      "elapsed_ms": 24.944,
+      "error": null,
+      "since_start_ms": 19948
+    },
+    {
+      "elapsed_ms": 20.051,
+      "error": null,
+      "since_start_ms": 20468
+    },
+    {
+      "elapsed_ms": 24.956,
+      "error": null,
+      "since_start_ms": 20993
+    },
+    {
+      "elapsed_ms": 24.918,
+      "error": null,
+      "since_start_ms": 21518
+    },
+    {
+      "elapsed_ms": 24.688,
+      "error": null,
+      "since_start_ms": 22043
+    },
+    {
+      "elapsed_ms": 25.198,
+      "error": null,
+      "since_start_ms": 22569
+    },
+    {
+      "elapsed_ms": 24.783,
+      "error": null,
+      "since_start_ms": 23093
+    },
+    {
+      "elapsed_ms": 19.848,
+      "error": null,
+      "since_start_ms": 23613
+    },
+    {
+      "elapsed_ms": 24.905,
+      "error": null,
+      "since_start_ms": 24138
+    },
+    {
+      "elapsed_ms": 24.801,
+      "error": null,
+      "since_start_ms": 24663
+    },
+    {
+      "elapsed_ms": 24.841,
+      "error": null,
+      "since_start_ms": 25188
+    },
+    {
+      "elapsed_ms": 24.966,
+      "error": null,
+      "since_start_ms": 25713
+    },
+    {
+      "elapsed_ms": 29.891,
+      "error": null,
+      "since_start_ms": 26243
+    },
+    {
+      "elapsed_ms": 24.873,
+      "error": null,
+      "since_start_ms": 26768
+    },
+    {
+      "elapsed_ms": 20.025,
+      "error": null,
+      "since_start_ms": 27288
+    },
+    {
+      "elapsed_ms": 25.364,
+      "error": null,
+      "since_start_ms": 27814
+    },
+    {
+      "elapsed_ms": 24.522,
+      "error": null,
+      "since_start_ms": 28338
+    },
+    {
+      "elapsed_ms": 29.677,
+      "error": null,
+      "since_start_ms": 28868
+    },
+    {
+      "elapsed_ms": 25.168,
+      "error": null,
+      "since_start_ms": 29393
+    },
+    {
+      "elapsed_ms": 24.848,
+      "error": null,
+      "since_start_ms": 29918
+    },
+    {
+      "elapsed_ms": 20.067,
+      "error": null,
+      "since_start_ms": 30438
+    },
+    {
+      "elapsed_ms": 24.575,
+      "error": null,
+      "since_start_ms": 30963
+    },
+    {
+      "elapsed_ms": 24.91,
+      "error": null,
+      "since_start_ms": 31488
+    },
+    {
+      "elapsed_ms": 20.087,
+      "error": null,
+      "since_start_ms": 32008
+    },
+    {
+      "elapsed_ms": 24.716,
+      "error": null,
+      "since_start_ms": 32533
+    },
+    {
+      "elapsed_ms": 25.18,
+      "error": null,
+      "since_start_ms": 33058
+    },
+    {
+      "elapsed_ms": 24.775,
+      "error": null,
+      "since_start_ms": 33583
+    },
+    {
+      "elapsed_ms": 24.82,
+      "error": null,
+      "since_start_ms": 34108
+    },
+    {
+      "elapsed_ms": 24.853,
+      "error": null,
+      "since_start_ms": 34633
+    },
+    {
+      "elapsed_ms": 25.036,
+      "error": null,
+      "since_start_ms": 35158
+    },
+    {
+      "elapsed_ms": 24.735,
+      "error": null,
+      "since_start_ms": 35683
+    },
+    {
+      "elapsed_ms": 24.952,
+      "error": null,
+      "since_start_ms": 36208
+    },
+    {
+      "elapsed_ms": 24.907,
+      "error": null,
+      "since_start_ms": 36733
+    },
+    {
+      "elapsed_ms": 21.32,
+      "error": null,
+      "since_start_ms": 37254
+    },
+    {
+      "elapsed_ms": 39.087,
+      "error": null,
+      "since_start_ms": 37793
+    },
+    {
+      "elapsed_ms": 19.583,
+      "error": null,
+      "since_start_ms": 38313
+    },
+    {
+      "elapsed_ms": 24.852,
+      "error": null,
+      "since_start_ms": 38838
+    },
+    {
+      "elapsed_ms": 24.721,
+      "error": null,
+      "since_start_ms": 39363
+    },
+    {
+      "elapsed_ms": 24.828,
+      "error": null,
+      "since_start_ms": 39888
+    },
+    {
+      "elapsed_ms": 24.975,
+      "error": null,
+      "since_start_ms": 40413
+    },
+    {
+      "elapsed_ms": 19.866,
+      "error": null,
+      "since_start_ms": 40933
+    },
+    {
+      "elapsed_ms": 25.059,
+      "error": null,
+      "since_start_ms": 41458
+    },
+    {
+      "elapsed_ms": 24.697,
+      "error": null,
+      "since_start_ms": 41982
+    },
+    {
+      "elapsed_ms": 24.961,
+      "error": null,
+      "since_start_ms": 42507
+    },
+    {
+      "elapsed_ms": 24.172,
+      "error": null,
+      "since_start_ms": 43032
+    },
+    {
+      "elapsed_ms": 8.796,
+      "error": null,
+      "since_start_ms": 43541
+    },
+    {
+      "elapsed_ms": 8.884,
+      "error": null,
+      "since_start_ms": 44050
+    },
+    {
+      "elapsed_ms": 9.267,
+      "error": null,
+      "since_start_ms": 44559
+    },
+    {
+      "elapsed_ms": 8.793,
+      "error": null,
+      "since_start_ms": 45068
+    },
+    {
+      "elapsed_ms": 8.83,
+      "error": null,
+      "since_start_ms": 45577
+    }
+  ],
+  "run": {
+    "state": "complete",
+    "error": 0,
+    "verify_flags": 0,
+    "tcp_ms": 5,
+    "setup_ms": 10,
+    "handshake_ms": 35465,
+    "transfer_ms": 7285,
+    "bytes": 262144,
+    "plain_tcp_ms": 5,
+    "plain_transfer_ms": 295,
+    "plain_bytes": 262144,
+    "heap_before": 5266456,
+    "heap_after": 5267940,
+    "global_min_heap": 5242640,
+    "stack_free_words": 7233,
+    "entropy": "deterministic_test_only",
+    "tls": "1.2 ECDHE-ECDSA CHACHA20-POLY1305",
+    "errors": []
+  },
+  "summary": {
+    "idle": {
+      "count": 30,
+      "failures": 0,
+      "median_ms": 8.8545,
+      "p95_ms": 9.22,
+      "max_ms": 19.927
+    },
+    "busy": {
+      "count": 88,
+      "failures": 0,
+      "median_ms": 24.8275,
+      "p95_ms": 25.364,
+      "max_ms": 39.087
+    }
+  }
+}
